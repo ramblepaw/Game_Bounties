@@ -1,9 +1,9 @@
 services:
   app:
     # Built and published by .github/workflows/docker-publish.yml on every
-    # push to main. Replace YOUR_GITHUB_USERNAME/YOUR_REPO_NAME once the repo
-    # exists (must be all lowercase, matching the GHCR package name).
-    image: ghcr.io/YOUR_GITHUB_USERNAME/YOUR_REPO_NAME:latest
+    # push to main. GHCR image names are forced lowercase by the workflow's
+    # metadata-action step, regardless of the GitHub repo's actual casing.
+    image: ghcr.io/ramblepaw/game_bounties:latest
     restart: unless-stopped
     depends_on:
       db:
