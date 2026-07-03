@@ -1,0 +1,45 @@
+services:
+  app:
+    # Built and published by .github/workflows/docker-publish.yml on every
+    # push to main. Replace YOUR_GITHUB_USERNAME/YOUR_REPO_NAME once the repo
+    # exists (must be all lowercase, matching the GHCR package name).
+    image: ghcr.io/YOUR_GITHUB_USERNAME/YOUR_REPO_NAME:latest
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgresql://tracker:${POSTGRES_PASSWORD}@db:5432/tracker?sslmode=disable
+      AUTH_SECRET: ${AUTH_SECRET}
+      # Next.js embeds this at build time; for a single container this only
+      # matters if a browser tab stays open across a rebuild (worst case: one
+      # hard refresh). Not worth plumbing through as a build ARG for this scale.
+      NEXT_SERVER_ACTIONS_ENCRYPTION_KEY: ${NEXT_SERVER_ACTIONS_ENCRYPTION_KEY}
+      UPLOADS_DIR: /app/uploads
+      SEED_USER_1_USERNAME: ${SEED_USER_1_USERNAME}
+      SEED_USER_1_PASSWORD: ${SEED_USER_1_PASSWORD}
+      SEED_USER_1_DISPLAY_NAME: ${SEED_USER_1_DISPLAY_NAME}
+      SEED_USER_2_USERNAME: ${SEED_USER_2_USERNAME}
+      SEED_USER_2_PASSWORD: ${SEED_USER_2_PASSWORD}
+      SEED_USER_2_DISPLAY_NAME: ${SEED_USER_2_DISPLAY_NAME}
+      IGDB_CLIENT_ID: ${IGDB_CLIENT_ID}
+      IGDB_CLIENT_SECRET: ${IGDB_CLIENT_SECRET}
+    ports:
+      - "3000:3000"
+    volumes:
+      - ${UPLOADS_PATH}:/app/uploads
+
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: tracker
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: tracker
+    volumes:
+      - ${DB_DATA_PATH}:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U tracker"]
+      interval: 5s
+      timeout: 5s
+      retries: 5

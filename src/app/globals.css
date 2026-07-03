@@ -1,0 +1,65 @@
+@import "tailwindcss";
+
+/* Manual toggle (see ThemeToggle), not OS prefers-color-scheme — a past bug
+   where native form controls silently followed OS dark mode while our text
+   colors assumed light backgrounds taught us to keep this explicit. */
+@custom-variant dark (&:where(.dark, .dark *));
+
+:root {
+  --background: #faf5ff;
+  --foreground: #171717;
+  color-scheme: light;
+}
+
+.dark {
+  --background: #16101f;
+  --foreground: #ede9fe;
+  color-scheme: dark;
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --font-sans: var(--font-geist-sans);
+  --font-mono: var(--font-geist-mono);
+}
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+  font-family: Arial, Helvetica, sans-serif;
+}
+
+/* Native form controls: explicit colors in both themes so contrast never
+   depends on the browser's own light/dark chrome rendering. */
+input,
+select,
+textarea {
+  background-color: #ffffff;
+  color: #171717;
+}
+
+.dark input,
+.dark select,
+.dark textarea {
+  background-color: #241b35;
+  color: #ede9fe;
+}
+
+/* Checklist styling presets — applied via ChecklistItem/Section "font" field. */
+.font-preset-sans {
+  font-family: var(--font-geist-sans), Arial, Helvetica, sans-serif;
+}
+.font-preset-mono {
+  font-family: var(--font-geist-mono), ui-monospace, monospace;
+}
+.font-preset-serif {
+  font-family: var(--font-serif), Georgia, serif;
+}
+.font-preset-playful {
+  font-family: var(--font-playful), sans-serif;
+}
+.font-preset-display {
+  font-family: var(--font-display), sans-serif;
+  letter-spacing: 0.02em;
+}

@@ -1,0 +1,9 @@
+node_modules
+.next
+src/generated
+uploads
+.env
+.env.local
+.git
+.claude
+npm-debug.log*

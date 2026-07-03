@@ -1,0 +1,33 @@
+import Link from "next/link";
+import { listGames, checklistProgress } from "@/server/queries/games";
+import { GameCarousel } from "@/components/games/game-carousel";
+import { Button } from "@/components/ui/button";
+
+export default async function GamesPage() {
+  const games = await listGames();
+
+  const carouselGames = games.map((game) => {
+    const allItems = game.checklists.flatMap((c) => checklistProgress(c));
+    const total = allItems.reduce((sum, p) => sum + p.total, 0);
+    const completed = allItems.reduce((sum, p) => sum + p.completed, 0);
+    return {
+      id: game.id,
+      title: game.title,
+      platform: game.platform,
+      coverImageUrl: game.coverImageUrl,
+      percent: total === 0 ? 0 : Math.round((completed / total) * 100),
+    };
+  });
+
+  return (
+    <div className="flex flex-col gap-6">
+      <div className="flex items-center justify-between">
+        <h1 className="text-lg font-bold text-violet-950 dark:text-violet-100">Your games</h1>
+        <Link href="/games/new">
+          <Button size="sm">+ Add game</Button>
+        </Link>
+      </div>
+      <GameCarousel games={carouselGames} />
+    </div>
+  );
+}

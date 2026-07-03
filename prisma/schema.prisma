@@ -1,0 +1,309 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum CompletionStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+enum TokenTransactionType {
+  EARN_COMPLETION
+  SPEND_PURCHASE
+  ADJUSTMENT
+}
+
+enum ItemLayout {
+  LIST
+  GRID
+}
+
+enum ImageFit {
+  CONTAIN
+  COVER
+}
+
+model User {
+  id           String   @id @default(cuid())
+  username     String   @unique
+  passwordHash String
+  displayName  String
+  avatarUrl    String?
+  // Max checklists this user can have "active" (running) at once.
+  // Null = use the app-wide default.
+  activeChecklistLimit Int?
+  createdAt    DateTime @default(now())
+
+  playSessions        PlaySession[]         @relation("SessionUser")
+  completionsMade     ChecklistCompletion[] @relation("CompletedBy")
+  completionsReviewed ChecklistCompletion[] @relation("ReviewedBy")
+  tokenTransactions   TokenTransaction[]    @relation("TransactionActor")
+  userBadges          UserBadge[]
+  gamePurchases       GamePurchase[]        @relation("PurchasedBy")
+  activeChecklists    ActiveChecklist[]
+}
+
+model Game {
+  id            String   @id @default(cuid())
+  title         String
+  platform      String?
+  coverImageUrl String?
+  releaseYear   Int?
+  notes         String?
+  // Metadata pulled from IGDB at creation time (see src/lib/igdb.ts).
+  igdbId        Int?
+  summary       String?
+  genres        String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  checklists Checklist[]
+  // Purchases are logged independently (see GamePurchase) and only
+  // optionally reference a tracked Game — buying a game doesn't imply a
+  // checklist exists for it yet, and vice versa.
+  purchases  GamePurchase[]
+
+  @@index([platform])
+}
+
+model Checklist {
+  id          String  @id @default(cuid())
+  gameId      String
+  game        Game    @relation(fields: [gameId], references: [id], onDelete: Cascade)
+  name        String
+  description String?
+  order       Int     @default(0)
+  // Tokens awarded when this checklist is approved. Null = use the app-wide default.
+  tokenReward Int?
+  // Custom badge awarded on approval. Null = fall back to the generic badge.
+  badgeName    String?
+  badgeIconUrl String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  tabs         ChecklistTab[]
+  completions  ChecklistCompletion[]
+  playSessions PlaySession[]
+  activeFor    ActiveChecklist[]
+
+  @@index([gameId])
+}
+
+// Marks a checklist as one of a user's currently-"running" checklists — a
+// self-imposed focus limit (see User.activeChecklistLimit), separate from the
+// moment-to-moment PlaySession timer. A user must free up a slot (stop running
+// one) before activating another once at their limit.
+model ActiveChecklist {
+  id          String    @id @default(cuid())
+  userId      String
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  checklistId String
+  checklist   Checklist @relation(fields: [checklistId], references: [id], onDelete: Cascade)
+  activatedAt DateTime  @default(now())
+
+  @@unique([userId, checklistId])
+  @@index([userId])
+}
+
+// A page within a checklist's designer canvas. Multiple tabs still belong to
+// (and count toward the progress/approval of) the same Checklist.
+model ChecklistTab {
+  id          String    @id @default(cuid())
+  checklistId String
+  checklist   Checklist @relation(fields: [checklistId], references: [id], onDelete: Cascade)
+  title       String
+  order       Int       @default(0)
+
+  canvasBgColor    String?
+  canvasBgImageUrl String?
+
+  // tab-button style overrides
+  bgColor     String?
+  textColor   String?
+  borderColor String?
+  textSize    Int?
+
+  sections ChecklistSection[]
+
+  @@index([checklistId])
+}
+
+// A "module" in the designer: a styled block of items within a tab.
+model ChecklistSection {
+  id    String       @id @default(cuid())
+  tabId String
+  tab   ChecklistTab @relation(fields: [tabId], references: [id], onDelete: Cascade)
+  name  String
+  order Int          @default(0)
+
+  itemLayout  ItemLayout @default(GRID)
+  gridColumns Int        @default(4)
+  span        Int        @default(4)
+
+  bgColor     String?
+  textColor   String?
+  borderColor String?
+  textSize    Int?
+
+  items ChecklistItem[]
+
+  @@index([tabId])
+}
+
+model ChecklistItem {
+  id        String           @id @default(cuid())
+  sectionId String
+  section   ChecklistSection @relation(fields: [sectionId], references: [id], onDelete: Cascade)
+
+  title       String
+  description String?
+  imageUrl    String?
+  url         String?
+  order       Int     @default(0)
+
+  bgColor     String?
+  textColor   String?
+  borderColor String?
+  textSize    Int?
+  fontFamily  String?
+
+  // Small sprite/icon art is the common case for this app, so crisp scaling
+  // is the better default; the per-item toggle stays available for anyone
+  // who wants a specific image smoothed instead.
+  pixelatedImage  Boolean  @default(true)
+  imageFit        ImageFit @default(CONTAIN)
+  imageScale      Float    @default(1)
+  imagePositionX  Int      @default(50)
+  imagePositionY  Int      @default(50)
+
+  isComplete  Boolean   @default(false)
+  completedAt DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([sectionId])
+}
+
+model ChecklistCompletion {
+  id          String           @id @default(cuid())
+  checklistId String
+  checklist   Checklist        @relation(fields: [checklistId], references: [id], onDelete: Cascade)
+  status      CompletionStatus @default(PENDING)
+
+  completedById String
+  completedBy   User   @relation("CompletedBy", fields: [completedById], references: [id])
+
+  reviewedById String?
+  reviewedBy   User?   @relation("ReviewedBy", fields: [reviewedById], references: [id])
+
+  submittedAt     DateTime  @default(now())
+  reviewedAt      DateTime?
+  rejectionReason String?
+  // Set by the OTHER household member to let completedBy re-run this
+  // checklist before the standard cooldown (see src/lib/cooldown.ts) elapses.
+  cooldownWaivedAt DateTime?
+
+  tokenTransaction TokenTransaction?
+  userBadge        UserBadge?
+
+  @@index([checklistId])
+  @@index([status])
+}
+
+model PlaySession {
+  id          String    @id @default(cuid())
+  checklistId String
+  checklist   Checklist @relation(fields: [checklistId], references: [id], onDelete: Cascade)
+
+  userId String
+  user   User   @relation("SessionUser", fields: [userId], references: [id])
+
+  startedAt       DateTime
+  endedAt         DateTime?
+  durationMinutes Int?
+  notes           String?
+  isManualEntry   Boolean  @default(false)
+
+  createdAt DateTime @default(now())
+
+  @@index([checklistId])
+  @@index([userId])
+}
+
+model TokenTransaction {
+  id     String               @id @default(cuid())
+  type   TokenTransactionType
+  amount Int
+  reason String?
+
+  actorId String
+  actor   User   @relation("TransactionActor", fields: [actorId], references: [id])
+
+  completionId String?              @unique
+  completion   ChecklistCompletion? @relation(fields: [completionId], references: [id])
+
+  gamePurchaseId String?       @unique
+  gamePurchase   GamePurchase? @relation(fields: [gamePurchaseId], references: [id])
+
+  createdAt DateTime @default(now())
+
+  @@index([actorId])
+  @@index([createdAt])
+}
+
+// A logged real-world purchase: "I bought Title for N tokens." Standalone by
+// design — optionally linked to a tracked Game if/when one gets created for it.
+model GamePurchase {
+  id     String @id @default(cuid())
+  title  String
+  gameId String?
+  game   Game?   @relation(fields: [gameId], references: [id], onDelete: SetNull)
+
+  purchasedById String
+  purchasedBy   User   @relation("PurchasedBy", fields: [purchasedById], references: [id])
+
+  tokenCost    Int
+  notes        String?
+  purchasedAt  DateTime @default(now())
+
+  tokenTransaction TokenTransaction?
+
+  @@index([gameId])
+}
+
+model Badge {
+  id          String   @id @default(cuid())
+  key         String   @unique
+  name        String
+  description String?
+  iconUrl     String?
+  createdAt   DateTime @default(now())
+
+  userBadges UserBadge[]
+}
+
+model UserBadge {
+  id      String @id @default(cuid())
+  userId  String
+  user    User   @relation(fields: [userId], references: [id])
+  badgeId String
+  badge   Badge  @relation(fields: [badgeId], references: [id])
+
+  completionId String?              @unique
+  completion   ChecklistCompletion? @relation(fields: [completionId], references: [id])
+
+  awardedAt DateTime @default(now())
+
+  @@index([userId])
+}
