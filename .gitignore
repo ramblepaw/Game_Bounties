@@ -49,3 +49,8 @@ next-env.d.ts
 
 # local Claude Code tool state (session locks, machine-specific permissions)
 /.claude
+
+# one-off file with real secrets inlined for pasting into TrueNAS's Custom
+# App UI directly — never commit this, unlike docker-compose.yaml which uses
+# ${VAR} placeholders and no real secrets
+/truenas-compose.yaml
