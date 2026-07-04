@@ -4,7 +4,7 @@ import { computeChecklistProgress, type ProgressItemInput } from "@/lib/checklis
 
 export async function listGames() {
   return db.game.findMany({
-    orderBy: { createdAt: "desc" },
+    orderBy: { title: "asc" },
     include: {
       checklists: {
         include: { tabs: { include: { sections: { include: { items: true } } } } },

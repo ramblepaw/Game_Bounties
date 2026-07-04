@@ -1,9 +1,13 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
 import { ProgressBar } from "@/components/checklists/progress-bar";
+import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
+
+const SPIN_STEP_MS = 90;
 
 type CarouselGame = {
   id: string;
@@ -39,7 +43,16 @@ function ringOffset(i: number, index: number, n: number): number {
 export function GameCarousel({ games }: { games: CarouselGame[] }) {
   const router = useRouter();
   const [index, setIndex] = useState(0);
+  const [query, setQuery] = useState("");
+  const [notFound, setNotFound] = useState(false);
+  const spinIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const n = games.length;
+
+  useEffect(() => {
+    return () => {
+      if (spinIntervalRef.current) clearInterval(spinIntervalRef.current);
+    };
+  }, []);
 
   if (n === 0) {
     return <p className="text-neutral-500">No games yet. Add your first one below.</p>;
@@ -49,8 +62,53 @@ export function GameCarousel({ games }: { games: CarouselGame[] }) {
   const next = () => setIndex((i) => (i + 1) % n);
   const active = games[index];
 
+  function spinToIndex(targetIndex: number) {
+    if (spinIntervalRef.current) return;
+    const steps = ringOffset(targetIndex, index, n);
+    if (steps === 0) return;
+    const direction = steps > 0 ? 1 : -1;
+    let remaining = Math.abs(steps);
+    spinIntervalRef.current = setInterval(() => {
+      setIndex((i) => (i + direction + n) % n);
+      remaining -= 1;
+      if (remaining <= 0 && spinIntervalRef.current) {
+        clearInterval(spinIntervalRef.current);
+        spinIntervalRef.current = null;
+      }
+    }, SPIN_STEP_MS);
+  }
+
+  function handleSearchSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    const q = query.trim().toLowerCase();
+    if (!q) return;
+    const targetIndex = games.findIndex((g) => g.title.toLowerCase().includes(q));
+    if (targetIndex === -1) {
+      setNotFound(true);
+      return;
+    }
+    setNotFound(false);
+    spinToIndex(targetIndex);
+  }
+
   return (
     <div className="flex flex-col items-center gap-6">
+      <form onSubmit={handleSearchSubmit} className="flex w-full max-w-sm gap-2">
+        <Input
+          value={query}
+          onChange={(e) => {
+            setQuery(e.target.value);
+            setNotFound(false);
+          }}
+          placeholder="Search games…"
+          className="flex-1"
+        />
+        <Button type="submit" size="sm">
+          Go
+        </Button>
+      </form>
+      {notFound && <p className="text-xs text-red-500">No game matches &quot;{query}&quot;.</p>}
+
       <div
         className="relative w-full"
         style={{ height: CARD_HEIGHT + 60, perspective: "1600px" }}
