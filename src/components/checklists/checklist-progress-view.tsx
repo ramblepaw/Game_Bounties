@@ -2,7 +2,7 @@
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { toggleItem } from "@/server/actions/checklists";
+import { toggleItem, setCounterValue } from "@/server/actions/checklists";
 import { fontClassForKey } from "@/lib/fonts";
 import { cn } from "@/lib/cn";
 
@@ -22,6 +22,9 @@ interface ProgressItem {
   imageScale: number;
   imagePositionX: number;
   imagePositionY: number;
+  kind: "CHECKBOX" | "COUNTER";
+  targetCount: number | null;
+  currentCount: number;
   isComplete: boolean;
 }
 
@@ -74,6 +77,37 @@ function getGridColsClass(cols: number): string {
   return map[cols] || "grid-cols-4";
 }
 
+function CounterControl({
+  item,
+  onChange,
+  className,
+}: {
+  item: Pick<ProgressItem, "id" | "currentCount" | "targetCount">;
+  onChange: (value: number) => void;
+  className?: string;
+}) {
+  return (
+    <div onClick={(e) => e.stopPropagation()} className={cn("flex items-center gap-1.5", className)}>
+      <button
+        type="button"
+        onClick={() => onChange(item.currentCount + 1)}
+        className="rounded bg-white/10 px-2 py-0.5 text-xs font-bold text-white hover:bg-white/20"
+      >
+        +1
+      </button>
+      <input
+        key={`${item.id}-${item.currentCount}`}
+        type="number"
+        min={0}
+        defaultValue={item.currentCount}
+        onBlur={(e) => onChange(parseInt(e.target.value, 10) || 0)}
+        className="w-14 rounded border border-white/20 bg-black/20 px-1 py-0.5 text-center text-xs text-white"
+      />
+      <span className="text-[10px] text-white/70">/ {item.targetCount ?? "?"}</span>
+    </div>
+  );
+}
+
 export function ChecklistProgressView({ tabs }: { tabs: ProgressTab[] }) {
   const router = useRouter();
   const [, startTransition] = useTransition();
@@ -84,6 +118,13 @@ export function ChecklistProgressView({ tabs }: { tabs: ProgressTab[] }) {
   function handleToggle(itemId: string) {
     startTransition(async () => {
       await toggleItem(itemId);
+      router.refresh();
+    });
+  }
+
+  function handleSetCounter(itemId: string, value: number) {
+    startTransition(async () => {
+      await setCounterValue(itemId, value);
       router.refresh();
     });
   }
@@ -157,26 +198,33 @@ export function ChecklistProgressView({ tabs }: { tabs: ProgressTab[] }) {
                         : "flex flex-col gap-2"
                     }
                   >
-                    {section.items.map((item) => (
+                    {section.items.map((item) => {
+                      const isCounter = item.kind === "COUNTER";
+                      return (
                       <div
                         key={item.id}
-                        role="checkbox"
-                        aria-checked={item.isComplete}
-                        tabIndex={0}
-                        onClick={() => handleToggle(item.id)}
-                        onKeyDown={(e) => {
-                          if (e.key === "Enter" || e.key === " ") {
-                            e.preventDefault();
-                            handleToggle(item.id);
-                          }
-                        }}
+                        role={isCounter ? undefined : "checkbox"}
+                        aria-checked={isCounter ? undefined : item.isComplete}
+                        tabIndex={isCounter ? undefined : 0}
+                        onClick={isCounter ? undefined : () => handleToggle(item.id)}
+                        onKeyDown={
+                          isCounter
+                            ? undefined
+                            : (e) => {
+                                if (e.key === "Enter" || e.key === " ") {
+                                  e.preventDefault();
+                                  handleToggle(item.id);
+                                }
+                              }
+                        }
                         style={{
                           backgroundColor: item.bgColor ?? "rgba(139,92,246,0.08)",
                           borderColor: item.borderColor ?? "transparent",
                           color: item.textColor ?? "#ede9fe",
                         }}
                         className={cn(
-                          "cursor-pointer overflow-hidden rounded-xl border transition-transform hover:scale-[1.02] focus:outline-none focus:ring-2 focus:ring-neutral-900",
+                          "overflow-hidden rounded-xl border transition-transform focus:outline-none focus:ring-2 focus:ring-neutral-900",
+                          isCounter ? "" : "cursor-pointer hover:scale-[1.02]",
                           section.itemLayout === "GRID"
                             ? "relative flex aspect-square flex-col"
                             : "flex items-center gap-3 p-2",
@@ -221,7 +269,7 @@ export function ChecklistProgressView({ tabs }: { tabs: ProgressTab[] }) {
                                 "No image"
                               )}
                             </div>
-                            <div className="relative z-10 mt-auto w-full bg-gradient-to-t from-black/70 to-transparent p-2 pt-8">
+                            <div className="relative z-10 mt-auto flex w-full flex-col gap-1 bg-gradient-to-t from-black/70 to-transparent p-2 pt-8">
                               <span
                                 className={cn(
                                   "block text-center font-bold leading-tight",
@@ -232,6 +280,13 @@ export function ChecklistProgressView({ tabs }: { tabs: ProgressTab[] }) {
                               >
                                 {item.title}
                               </span>
+                              {isCounter && (
+                                <CounterControl
+                                  item={item}
+                                  onChange={(value) => handleSetCounter(item.id, value)}
+                                  className="justify-center"
+                                />
+                              )}
                             </div>
                           </>
                         ) : (
@@ -247,7 +302,7 @@ export function ChecklistProgressView({ tabs }: { tabs: ProgressTab[] }) {
                                 />
                               </div>
                             )}
-                            <div>
+                            <div className="flex-1">
                               <h3
                                 className={cn("font-bold", item.isComplete && "line-through", fontClassForKey(item.fontFamily))}
                                 style={{ fontSize: item.textSize ? `${item.textSize}px` : "1rem" }}
@@ -256,10 +311,18 @@ export function ChecklistProgressView({ tabs }: { tabs: ProgressTab[] }) {
                               </h3>
                               {item.description && <p className="text-xs opacity-70">{item.description}</p>}
                             </div>
+                            {isCounter && (
+                              <CounterControl
+                                item={item}
+                                onChange={(value) => handleSetCounter(item.id, value)}
+                                className="order-last ml-auto"
+                              />
+                            )}
                           </>
                         )}
                       </div>
-                    ))}
+                      );
+                    })}
                   </div>
                 )}
               </div>

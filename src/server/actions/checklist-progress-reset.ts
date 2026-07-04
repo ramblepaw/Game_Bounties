@@ -12,6 +12,6 @@ export async function resetChecklistProgress(
 ): Promise<void> {
   await client.checklistItem.updateMany({
     where: { section: { tab: { checklistId } } },
-    data: { isComplete: false, completedAt: null },
+    data: { isComplete: false, completedAt: null, currentCount: 0 },
   });
 }

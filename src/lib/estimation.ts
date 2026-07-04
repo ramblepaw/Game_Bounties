@@ -1,6 +1,7 @@
 import "server-only";
 import { differenceInCalendarDays, addDays } from "date-fns";
 import { db } from "@/lib/db";
+import { itemWeight, computeChecklistProgress } from "@/lib/checklist-progress";
 
 export type CompletionEstimate = {
   projectedDate: Date | null;
@@ -18,18 +19,31 @@ export async function estimateCompletionDate(checklistId: string): Promise<Compl
     select: {
       createdAt: true,
       tabs: {
-        select: { sections: { select: { items: { select: { isComplete: true, completedAt: true } } } } },
+        select: {
+          sections: {
+            select: {
+              items: {
+                select: { kind: true, isComplete: true, completedAt: true, targetCount: true, currentCount: true },
+              },
+            },
+          },
+        },
       },
     },
   });
   if (!checklist) return { projectedDate: null, velocityPerDay: null, confidence: "none" };
 
   const items = checklist.tabs.flatMap((t) => t.sections.flatMap((s) => s.items));
-  const total = items.length;
+  const { total, completed } = computeChecklistProgress(items);
+  const remaining = total - completed;
+
+  // A finished item's timestamp is the only signal we record about pacing --
+  // there's no log of the individual increments behind a COUNTER, so its full
+  // weight lands on the single day it crossed its target rather than being
+  // spread across the days it was actually accumulating.
   const completedItems = items.filter(
-    (i): i is { isComplete: true; completedAt: Date } => i.isComplete && i.completedAt !== null,
+    (i): i is typeof i & { completedAt: Date } => i.isComplete && i.completedAt !== null,
   );
-  const remaining = total - completedItems.length;
 
   if (remaining <= 0) {
     return { projectedDate: null, velocityPerDay: null, confidence: "none" };
@@ -47,7 +61,8 @@ export async function estimateCompletionDate(checklistId: string): Promise<Compl
     return { projectedDate: null, velocityPerDay: null, confidence: "none" };
   }
 
-  const velocityPerDay = inWindow.length / effectiveWindowDays;
+  const unitsInWindow = inWindow.reduce((sum, i) => sum + itemWeight(i), 0);
+  const velocityPerDay = unitsInWindow / effectiveWindowDays;
   if (velocityPerDay <= 0) {
     return { projectedDate: null, velocityPerDay: null, confidence: "none" };
   }

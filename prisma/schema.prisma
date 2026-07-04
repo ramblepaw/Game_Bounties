@@ -32,6 +32,11 @@ enum ImageFit {
   COVER
 }
 
+enum ItemKind {
+  CHECKBOX
+  COUNTER
+}
+
 model User {
   id           String   @id @default(cuid())
   username     String   @unique
@@ -185,6 +190,14 @@ model ChecklistItem {
   imageScale      Float    @default(1)
   imagePositionX  Int      @default(50)
   imagePositionY  Int      @default(50)
+
+  // COUNTER items track a running tally (e.g. "collect 1000 coins") instead
+  // of a single toggle; isComplete/completedAt are still the source of truth
+  // everywhere else (progress %, approval gating, stats) and just get derived
+  // from currentCount vs targetCount as the count changes.
+  kind        ItemKind @default(CHECKBOX)
+  targetCount Int?
+  currentCount Int     @default(0)
 
   isComplete  Boolean   @default(false)
   completedAt DateTime?

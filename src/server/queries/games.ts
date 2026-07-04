@@ -1,5 +1,6 @@
 import "server-only";
 import { db } from "@/lib/db";
+import { computeChecklistProgress, type ProgressItemInput } from "@/lib/checklist-progress";
 
 export async function listGames() {
   return db.game.findMany({
@@ -13,12 +14,10 @@ export async function listGames() {
 }
 
 export function checklistProgress(checklist: {
-  tabs: { sections: { items: { isComplete: boolean }[] }[] }[];
+  tabs: { sections: { items: ProgressItemInput[] }[] }[];
 }) {
   const items = checklist.tabs.flatMap((t) => t.sections.flatMap((s) => s.items));
-  const total = items.length;
-  const completed = items.filter((i) => i.isComplete).length;
-  return { total, completed, percent: total === 0 ? 0 : Math.round((completed / total) * 100) };
+  return computeChecklistProgress(items);
 }
 
 export async function getGameWithChecklists(gameId: string) {

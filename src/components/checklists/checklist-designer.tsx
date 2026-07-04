@@ -24,6 +24,7 @@ import { cn } from "@/lib/cn";
 
 type ItemLayoutMode = "LIST" | "GRID";
 type ImageFitMode = "CONTAIN" | "COVER";
+type ItemKindMode = "CHECKBOX" | "COUNTER";
 
 interface DesignerItem {
   id: string;
@@ -42,6 +43,9 @@ interface DesignerItem {
   imageScale: number;
   imagePositionX: number;
   imagePositionY: number;
+  kind: ItemKindMode;
+  targetCount: number | null;
+  currentCount: number;
   isComplete: boolean;
 }
 
@@ -401,6 +405,16 @@ export function ChecklistDesigner({ checklist, gameId }: { checklist: DesignerCh
                               section.itemLayout === "GRID" ? "relative flex aspect-square flex-col" : "flex items-center gap-3 p-2",
                             )}
                           >
+                            {item.kind === "COUNTER" && (
+                              <span
+                                className={cn(
+                                  "z-20 rounded-full bg-black/60 px-2 py-0.5 text-[10px] font-bold text-white",
+                                  section.itemLayout === "GRID" ? "absolute left-1.5 top-1.5" : "order-last ml-auto",
+                                )}
+                              >
+                                0 / {item.targetCount ?? "?"}
+                              </span>
+                            )}
                             {section.itemLayout === "GRID" ? (
                               <>
                                 <div className="absolute inset-0 flex items-center justify-center overflow-hidden bg-black/5 p-2 pb-8 text-xs text-neutral-400">
@@ -663,6 +677,47 @@ export function ChecklistDesigner({ checklist, gameId }: { checklist: DesignerCh
 
               {selectedType === "item" && selectedItem && (
                 <>
+                  <div>
+                    <label className="mb-2 block text-xs font-bold text-neutral-500">Type</label>
+                    <div className="grid grid-cols-2 gap-1 rounded-lg border border-neutral-200 bg-neutral-50 p-1 dark:border-neutral-700 dark:bg-neutral-800">
+                      <button
+                        type="button"
+                        onClick={() => updateSelectedData("kind", "CHECKBOX")}
+                        className={cn(
+                          "rounded py-1 text-xs font-bold",
+                          selectedItem.kind !== "COUNTER" ? "bg-white shadow" : "text-neutral-500",
+                        )}
+                      >
+                        Checkbox
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => updateSelectedData("kind", "COUNTER")}
+                        className={cn(
+                          "rounded py-1 text-xs font-bold",
+                          selectedItem.kind === "COUNTER" ? "bg-white shadow" : "text-neutral-500",
+                        )}
+                      >
+                        Counter
+                      </button>
+                    </div>
+                    {selectedItem.kind === "COUNTER" && (
+                      <label className="mt-2 flex items-center justify-between text-xs text-neutral-500">
+                        Target count
+                        <input
+                          key={`${selectedItem.id}-target`}
+                          type="number"
+                          min={1}
+                          defaultValue={selectedItem.targetCount ?? 100}
+                          onBlur={(e) =>
+                            updateSelectedData("targetCount", Math.max(1, parseInt(e.target.value, 10) || 1))
+                          }
+                          className="w-20 rounded border border-neutral-300 px-1.5 py-1 text-sm text-neutral-900"
+                        />
+                      </label>
+                    )}
+                  </div>
+
                   <div>
                     <label className="mb-1 block text-xs text-neutral-500">Description</label>
                     <textarea

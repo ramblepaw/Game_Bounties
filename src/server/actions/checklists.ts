@@ -5,7 +5,7 @@ import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { getSession } from "@/lib/auth";
 import { db } from "@/lib/db";
-import type { ItemLayout, ImageFit } from "@/generated/prisma/enums";
+import type { ItemLayout, ImageFit, ItemKind } from "@/generated/prisma/enums";
 
 async function requireSession() {
   const session = await getSession();
@@ -175,6 +175,8 @@ export type ItemStyleInput = {
   imageScale?: number;
   imagePositionX?: number;
   imagePositionY?: number;
+  kind?: ItemKind;
+  targetCount?: number | null;
 };
 
 export async function createItem(
@@ -210,6 +212,24 @@ export async function toggleItem(itemId: string): Promise<void> {
     data: {
       isComplete: !item.isComplete,
       completedAt: !item.isComplete ? new Date() : null,
+    },
+  });
+  revalidatePath("/", "layout");
+}
+
+export async function setCounterValue(itemId: string, value: number): Promise<void> {
+  await requireSession();
+  const item = await db.checklistItem.findUniqueOrThrow({ where: { id: itemId } });
+  const currentCount = Math.max(0, Math.floor(value) || 0);
+  const wasComplete = item.isComplete;
+  const isComplete = item.targetCount != null && currentCount >= item.targetCount;
+
+  await db.checklistItem.update({
+    where: { id: itemId },
+    data: {
+      currentCount,
+      isComplete,
+      completedAt: isComplete ? (wasComplete ? item.completedAt : new Date()) : null,
     },
   });
   revalidatePath("/", "layout");
