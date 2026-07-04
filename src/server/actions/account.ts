@@ -9,7 +9,7 @@ export type AccountActionState = { error: string | null; success: boolean };
 
 const initialState: AccountActionState = { error: null, success: false };
 
-export async function updateUsername(
+export async function updateProfile(
   _prevState: AccountActionState,
   formData: FormData,
 ): Promise<AccountActionState> {
@@ -17,16 +17,23 @@ export async function updateUsername(
   if (!session) return { error: "Not logged in.", success: false };
 
   const username = String(formData.get("username") || "").trim();
+  const displayName = String(formData.get("displayName") || "").trim();
   if (!username) return { error: "Username is required.", success: false };
-  if (username === session.username) return initialState;
+  if (!displayName) return { error: "Display name is required.", success: false };
 
-  const existing = await db.user.findUnique({ where: { username } });
-  if (existing && existing.id !== session.userId) {
-    return { error: "That username is already taken.", success: false };
+  if (username !== session.username) {
+    const existing = await db.user.findUnique({ where: { username } });
+    if (existing && existing.id !== session.userId) {
+      return { error: "That username is already taken.", success: false };
+    }
   }
 
-  await db.user.update({ where: { id: session.userId }, data: { username } });
-  await setSessionCookie({ ...session, username });
+  if (username === session.username && displayName === session.displayName) {
+    return initialState;
+  }
+
+  await db.user.update({ where: { id: session.userId }, data: { username, displayName } });
+  await setSessionCookie({ ...session, username, displayName });
   revalidatePath("/", "layout");
   return { error: null, success: true };
 }

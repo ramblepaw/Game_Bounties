@@ -106,7 +106,7 @@ export default async function ProfilePage() {
 
       <section className="flex flex-col gap-3">
         <h2 className="font-medium text-fuchsia-700 dark:text-fuchsia-400">Account settings</h2>
-        <AccountSettings username={user.username} />
+        <AccountSettings username={user.username} displayName={user.displayName} />
       </section>
     </div>
   );
