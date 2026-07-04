@@ -68,8 +68,12 @@ model Game {
   igdbId        Int?
   summary       String?
   genres        String?
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
+  // For paired versions that share one checklist (e.g. Pokemon X & Y) --
+  // when set, the cover renders as a diagonal blend of both covers.
+  secondaryTitle         String?
+  secondaryCoverImageUrl String?
+  createdAt              DateTime @default(now())
+  updatedAt              DateTime @updatedAt
 
   checklists Checklist[]
 

@@ -13,8 +13,10 @@ export default async function GamesPage() {
     return {
       id: game.id,
       title: game.title,
+      secondaryTitle: game.secondaryTitle,
       platform: game.platform,
       coverImageUrl: game.coverImageUrl,
+      secondaryCoverImageUrl: game.secondaryCoverImageUrl,
       percent: total === 0 ? 0 : Math.round((completed / total) * 100),
     };
   });

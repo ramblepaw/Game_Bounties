@@ -2,8 +2,8 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import Image from "next/image";
 import { ProgressBar } from "@/components/checklists/progress-bar";
+import { GameCover } from "@/components/games/game-cover";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 
@@ -12,8 +12,10 @@ const SPIN_STEP_MS = 90;
 type CarouselGame = {
   id: string;
   title: string;
+  secondaryTitle: string | null;
   platform: string | null;
   coverImageUrl: string | null;
+  secondaryCoverImageUrl: string | null;
   percent: number;
 };
 
@@ -82,7 +84,9 @@ export function GameCarousel({ games }: { games: CarouselGame[] }) {
     e.preventDefault();
     const q = query.trim().toLowerCase();
     if (!q) return;
-    const targetIndex = games.findIndex((g) => g.title.toLowerCase().includes(q));
+    const targetIndex = games.findIndex(
+      (g) => g.title.toLowerCase().includes(q) || g.secondaryTitle?.toLowerCase().includes(q),
+    );
     if (targetIndex === -1) {
       setNotFound(true);
       return;
@@ -156,24 +160,17 @@ export function GameCarousel({ games }: { games: CarouselGame[] }) {
                 }}
               >
                 <div className="relative aspect-[3/4] w-full overflow-hidden rounded-lg bg-violet-100 dark:bg-violet-950">
-                  {game.coverImageUrl ? (
-                    <Image
-                      src={game.coverImageUrl}
-                      alt={game.title}
-                      fill
-                      className="object-cover"
-                      unoptimized
-                    />
-                  ) : (
-                    <div className="flex h-full items-center justify-center text-xs text-violet-400">
-                      No cover
-                    </div>
-                  )}
+                  <GameCover
+                    title={game.title}
+                    coverImageUrl={game.coverImageUrl}
+                    secondaryCoverImageUrl={game.secondaryCoverImageUrl}
+                  />
                 </div>
                 {isFront && (
                   <div>
                     <p className="truncate text-sm font-medium text-neutral-900 dark:text-violet-100">
                       {game.title}
+                      {game.secondaryTitle && <span className="text-neutral-400"> &amp; {game.secondaryTitle}</span>}
                     </p>
                     {game.platform && (
                       <p className="truncate text-xs text-fuchsia-600 dark:text-fuchsia-400">
@@ -199,7 +196,10 @@ export function GameCarousel({ games }: { games: CarouselGame[] }) {
             ‹
           </button>
           <div className="max-w-[65%] text-center">
-            <p className="truncate font-medium text-neutral-900 dark:text-violet-100">{active.title}</p>
+            <p className="truncate font-medium text-neutral-900 dark:text-violet-100">
+              {active.title}
+              {active.secondaryTitle && <span className="text-neutral-400"> &amp; {active.secondaryTitle}</span>}
+            </p>
             {active.platform && (
               <p className="truncate text-xs text-fuchsia-600 dark:text-fuchsia-400">{active.platform}</p>
             )}

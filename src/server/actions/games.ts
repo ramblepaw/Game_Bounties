@@ -16,6 +16,7 @@ const gameSchema = z.object({
   summary: z.string().optional(),
   genres: z.string().optional(),
   igdbCoverImageUrl: z.string().optional(),
+  secondaryTitle: z.string().optional(),
 });
 
 export type GameFormState = { error: string | null };
@@ -36,6 +37,7 @@ export async function createGame(
     summary: formData.get("summary"),
     genres: formData.get("genres"),
     igdbCoverImageUrl: formData.get("igdbCoverImageUrl"),
+    secondaryTitle: formData.get("secondaryTitle"),
   });
   if (!parsed.success) {
     return { error: parsed.error.issues[0]?.message ?? "Invalid input." };
@@ -43,12 +45,17 @@ export async function createGame(
 
   let coverImageUrl: string | undefined;
   const coverFile = formData.get("coverImage");
+  let secondaryCoverImageUrl: string | undefined;
+  const secondaryCoverFile = formData.get("secondaryCoverImage");
   try {
     if (coverFile instanceof File && coverFile.size > 0) {
       // A manually chosen file always wins over the IGDB-selected cover.
       coverImageUrl = await saveUploadedImage(coverFile, "covers");
     } else if (parsed.data.igdbCoverImageUrl) {
       coverImageUrl = await saveImageFromUrl(parsed.data.igdbCoverImageUrl, "covers");
+    }
+    if (secondaryCoverFile instanceof File && secondaryCoverFile.size > 0) {
+      secondaryCoverImageUrl = await saveUploadedImage(secondaryCoverFile, "covers");
     }
   } catch (err) {
     if (err instanceof UploadValidationError) {
@@ -67,6 +74,8 @@ export async function createGame(
       summary: parsed.data.summary || null,
       genres: parsed.data.genres || null,
       coverImageUrl,
+      secondaryTitle: parsed.data.secondaryTitle || null,
+      secondaryCoverImageUrl,
     },
   });
 
@@ -91,6 +100,7 @@ export async function updateGame(
     summary: formData.get("summary"),
     genres: formData.get("genres"),
     igdbCoverImageUrl: formData.get("igdbCoverImageUrl"),
+    secondaryTitle: formData.get("secondaryTitle"),
   });
   if (!parsed.success) {
     return { error: parsed.error.issues[0]?.message ?? "Invalid input." };
@@ -98,11 +108,16 @@ export async function updateGame(
 
   let coverImageUrl: string | undefined;
   const coverFile = formData.get("coverImage");
+  let secondaryCoverImageUrl: string | undefined;
+  const secondaryCoverFile = formData.get("secondaryCoverImage");
   try {
     if (coverFile instanceof File && coverFile.size > 0) {
       coverImageUrl = await saveUploadedImage(coverFile, "covers");
     } else if (parsed.data.igdbCoverImageUrl) {
       coverImageUrl = await saveImageFromUrl(parsed.data.igdbCoverImageUrl, "covers");
+    }
+    if (secondaryCoverFile instanceof File && secondaryCoverFile.size > 0) {
+      secondaryCoverImageUrl = await saveUploadedImage(secondaryCoverFile, "covers");
     }
   } catch (err) {
     if (err instanceof UploadValidationError) {
@@ -118,6 +133,7 @@ export async function updateGame(
       platform: parsed.data.platform || null,
       releaseYear: parsed.data.releaseYear ? Number(parsed.data.releaseYear) : null,
       notes: parsed.data.notes || null,
+      secondaryTitle: parsed.data.secondaryTitle || null,
       // Only touch IGDB metadata/cover if this submission actually made a
       // fresh selection -- otherwise leave whatever was already saved alone.
       ...(parsed.data.igdbId
@@ -128,6 +144,7 @@ export async function updateGame(
           }
         : {}),
       ...(coverImageUrl ? { coverImageUrl } : {}),
+      ...(secondaryCoverImageUrl ? { secondaryCoverImageUrl } : {}),
     },
   });
 

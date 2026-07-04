@@ -151,6 +151,20 @@ export function NewGameForm() {
         </label>
         <input id="coverImage" name="coverImage" type="file" accept="image/*" className="text-sm" />
       </div>
+      <div className="flex flex-col gap-2 rounded-lg border border-dashed border-neutral-300 p-3 dark:border-neutral-700">
+        <label htmlFor="secondaryTitle" className="text-sm font-medium">
+          Paired version (optional — e.g. Pokémon Y, if this entry is for Pokémon X &amp; Y)
+        </label>
+        <Input
+          id="secondaryTitle"
+          name="secondaryTitle"
+          placeholder="Second game's title"
+        />
+        <label htmlFor="secondaryCoverImage" className="text-sm font-medium">
+          Paired version cover art
+        </label>
+        <input id="secondaryCoverImage" name="secondaryCoverImage" type="file" accept="image/*" className="text-sm" />
+      </div>
       <div className="flex flex-col gap-1">
         <label htmlFor="notes" className="text-sm font-medium">
           Notes

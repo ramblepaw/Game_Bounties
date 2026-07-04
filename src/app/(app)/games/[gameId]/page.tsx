@@ -1,4 +1,3 @@
-import Image from "next/image";
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { getGameWithChecklists } from "@/server/queries/games";
@@ -9,6 +8,7 @@ import { getSession, getPeerUser } from "@/lib/auth";
 import { getCooldownFor } from "@/lib/cooldown";
 import { formatMinutes } from "@/lib/format";
 import { ProgressBar } from "@/components/checklists/progress-bar";
+import { GameCover } from "@/components/games/game-cover";
 import { RunChecklistButton } from "@/components/checklists/run-checklist-button";
 import { WaiveCooldownButton } from "@/components/checklists/waive-cooldown-button";
 import { Button } from "@/components/ui/button";
@@ -46,24 +46,23 @@ export default async function GameDetailPage({
 
   return (
     <div className="flex flex-col gap-6">
+      <Link href="/games" className="text-sm text-neutral-500 hover:text-neutral-900 dark:hover:text-neutral-100">
+        ← Back to library
+      </Link>
+
       <div className="flex gap-4">
         <div className="relative aspect-[3/4] w-32 shrink-0 overflow-hidden rounded-lg bg-violet-100 shadow dark:bg-violet-950">
-          {game.coverImageUrl ? (
-            <Image
-              src={game.coverImageUrl}
-              alt={game.title}
-              fill
-              className="object-cover"
-              unoptimized
-            />
-          ) : (
-            <div className="flex h-full items-center justify-center text-xs text-violet-400">
-              No cover
-            </div>
-          )}
+          <GameCover
+            title={game.title}
+            coverImageUrl={game.coverImageUrl}
+            secondaryCoverImageUrl={game.secondaryCoverImageUrl}
+          />
         </div>
         <div className="flex flex-col gap-2">
-          <h1 className="text-xl font-semibold text-violet-950 dark:text-violet-100">{game.title}</h1>
+          <h1 className="text-xl font-semibold text-violet-950 dark:text-violet-100">
+            {game.title}
+            {game.secondaryTitle && <span className="text-neutral-400"> &amp; {game.secondaryTitle}</span>}
+          </h1>
           {game.platform && <p className="text-sm text-fuchsia-700 dark:text-fuchsia-400">{game.platform}</p>}
           {game.releaseYear && <p className="text-sm text-neutral-500 dark:text-neutral-400">{game.releaseYear}</p>}
           {game.genres && <p className="text-xs text-neutral-400">{game.genres}</p>}

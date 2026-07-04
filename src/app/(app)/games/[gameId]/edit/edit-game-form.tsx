@@ -16,6 +16,8 @@ type EditableGame = {
   releaseYear: number | null;
   notes: string | null;
   coverImageUrl: string | null;
+  secondaryTitle: string | null;
+  secondaryCoverImageUrl: string | null;
 };
 
 export function EditGameForm({ game }: { game: EditableGame }) {
@@ -31,6 +33,7 @@ export function EditGameForm({ game }: { game: EditableGame }) {
   const [title, setTitle] = useState(game.title);
   const [platform, setPlatform] = useState(game.platform ?? "");
   const [releaseYear, setReleaseYear] = useState(game.releaseYear ? String(game.releaseYear) : "");
+  const [secondaryTitle, setSecondaryTitle] = useState(game.secondaryTitle ?? "");
 
   function runSearch() {
     if (!query.trim()) return;
@@ -167,6 +170,29 @@ export function EditGameForm({ game }: { game: EditableGame }) {
           </div>
         )}
         <input id="coverImage" name="coverImage" type="file" accept="image/*" className="text-sm" />
+      </div>
+      <div className="flex flex-col gap-2 rounded-lg border border-dashed border-neutral-300 p-3 dark:border-neutral-700">
+        <label htmlFor="secondaryTitle" className="text-sm font-medium">
+          Paired version (optional — e.g. Pokémon Y, if this entry is for Pokémon X &amp; Y)
+        </label>
+        <Input
+          id="secondaryTitle"
+          name="secondaryTitle"
+          value={secondaryTitle}
+          onChange={(e) => setSecondaryTitle(e.target.value)}
+          placeholder="Second game's title"
+        />
+        <label htmlFor="secondaryCoverImage" className="text-sm font-medium">
+          Paired version cover art
+        </label>
+        {game.secondaryCoverImageUrl && (
+          <div className="flex items-center gap-2 text-xs text-neutral-500">
+            Current:
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src={game.secondaryCoverImageUrl} alt="" className="h-16 w-12 rounded object-cover" />
+          </div>
+        )}
+        <input id="secondaryCoverImage" name="secondaryCoverImage" type="file" accept="image/*" className="text-sm" />
       </div>
       <div className="flex flex-col gap-1">
         <label htmlFor="notes" className="text-sm font-medium">
