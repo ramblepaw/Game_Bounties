@@ -20,6 +20,10 @@ export function checklistProgress(checklist: {
   return computeChecklistProgress(items);
 }
 
+export async function getGame(gameId: string) {
+  return db.game.findUnique({ where: { id: gameId } });
+}
+
 export async function getGameWithChecklists(gameId: string) {
   return db.game.findUnique({
     where: { id: gameId },

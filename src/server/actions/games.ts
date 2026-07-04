@@ -74,6 +74,67 @@ export async function createGame(
   redirect(`/games/${game.id}`);
 }
 
+export async function updateGame(
+  gameId: string,
+  _prevState: GameFormState,
+  formData: FormData,
+): Promise<GameFormState> {
+  const session = await getSession();
+  if (!session) redirect("/login");
+
+  const parsed = gameSchema.safeParse({
+    title: formData.get("title"),
+    platform: formData.get("platform"),
+    releaseYear: formData.get("releaseYear"),
+    notes: formData.get("notes"),
+    igdbId: formData.get("igdbId"),
+    summary: formData.get("summary"),
+    genres: formData.get("genres"),
+    igdbCoverImageUrl: formData.get("igdbCoverImageUrl"),
+  });
+  if (!parsed.success) {
+    return { error: parsed.error.issues[0]?.message ?? "Invalid input." };
+  }
+
+  let coverImageUrl: string | undefined;
+  const coverFile = formData.get("coverImage");
+  try {
+    if (coverFile instanceof File && coverFile.size > 0) {
+      coverImageUrl = await saveUploadedImage(coverFile, "covers");
+    } else if (parsed.data.igdbCoverImageUrl) {
+      coverImageUrl = await saveImageFromUrl(parsed.data.igdbCoverImageUrl, "covers");
+    }
+  } catch (err) {
+    if (err instanceof UploadValidationError) {
+      return { error: err.message };
+    }
+    throw err;
+  }
+
+  await db.game.update({
+    where: { id: gameId },
+    data: {
+      title: parsed.data.title,
+      platform: parsed.data.platform || null,
+      releaseYear: parsed.data.releaseYear ? Number(parsed.data.releaseYear) : null,
+      notes: parsed.data.notes || null,
+      // Only touch IGDB metadata/cover if this submission actually made a
+      // fresh selection -- otherwise leave whatever was already saved alone.
+      ...(parsed.data.igdbId
+        ? {
+            igdbId: Number(parsed.data.igdbId),
+            summary: parsed.data.summary || null,
+            genres: parsed.data.genres || null,
+          }
+        : {}),
+      ...(coverImageUrl ? { coverImageUrl } : {}),
+    },
+  });
+
+  revalidatePath("/", "layout");
+  redirect(`/games/${gameId}`);
+}
+
 export async function deleteGame(gameId: string): Promise<void> {
   const session = await getSession();
   if (!session) redirect("/login");

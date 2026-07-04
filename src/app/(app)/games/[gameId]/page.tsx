@@ -70,11 +70,18 @@ export default async function GameDetailPage({
           <p className="text-sm text-neutral-500 dark:text-neutral-400">Total playtime: {formatMinutes(totalMinutes)}</p>
           {game.summary && <p className="max-w-prose text-sm text-neutral-600 dark:text-neutral-300">{game.summary}</p>}
           {game.notes && <p className="max-w-prose text-sm text-neutral-600 dark:text-neutral-300">{game.notes}</p>}
-          <form action={deleteGame.bind(null, gameId)}>
-            <Button variant="danger" size="sm" type="submit">
-              Delete game
-            </Button>
-          </form>
+          <div className="flex gap-2">
+            <Link href={`/games/${gameId}/edit`}>
+              <Button variant="secondary" size="sm">
+                Edit game
+              </Button>
+            </Link>
+            <form action={deleteGame.bind(null, gameId)}>
+              <Button variant="danger" size="sm" type="submit">
+                Delete game
+              </Button>
+            </form>
+          </div>
         </div>
       </div>
 
