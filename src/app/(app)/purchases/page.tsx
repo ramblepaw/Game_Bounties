@@ -1,15 +1,10 @@
-import { db } from "@/lib/db";
 import { listPurchases } from "@/server/queries/purchases";
 import { getTokenBalance } from "@/lib/token-ledger";
 import { PurchaseForm } from "./purchase-form";
 import { PurchaseList } from "./purchase-list";
 
 export default async function PurchasesPage() {
-  const [games, purchases, balance] = await Promise.all([
-    db.game.findMany({ orderBy: { title: "asc" }, select: { id: true, title: true } }),
-    listPurchases(),
-    getTokenBalance(),
-  ]);
+  const [purchases, balance] = await Promise.all([listPurchases(), getTokenBalance()]);
 
   const totalSpent = purchases.reduce((sum, p) => sum + p.tokenCost, 0);
 
@@ -32,7 +27,7 @@ export default async function PurchasesPage() {
         buying a game doesn&apos;t mean it has a checklist yet (or ever will).
       </p>
 
-      <PurchaseForm games={games} />
+      <PurchaseForm />
       <PurchaseList purchases={purchases} />
     </div>
   );

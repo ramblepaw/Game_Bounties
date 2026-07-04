@@ -28,7 +28,6 @@ export async function getGameWithChecklists(gameId: string) {
         orderBy: { order: "asc" },
         include: { tabs: { include: { sections: { include: { items: true } } } } },
       },
-      purchases: { orderBy: { purchasedAt: "asc" } },
     },
   });
 }

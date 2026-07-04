@@ -72,10 +72,6 @@ model Game {
   updatedAt     DateTime @updatedAt
 
   checklists Checklist[]
-  // Purchases are logged independently (see GamePurchase) and only
-  // optionally reference a tracked Game — buying a game doesn't imply a
-  // checklist exists for it yet, and vice versa.
-  purchases  GamePurchase[]
 
   @@index([platform])
 }
@@ -275,13 +271,11 @@ model TokenTransaction {
   @@index([createdAt])
 }
 
-// A logged real-world purchase: "I bought Title for N tokens." Standalone by
-// design — optionally linked to a tracked Game if/when one gets created for it.
+// A logged real-world purchase: "I bought Title for N tokens." Standalone --
+// not linked to a tracked Game in any way.
 model GamePurchase {
-  id     String @id @default(cuid())
-  title  String
-  gameId String?
-  game   Game?   @relation(fields: [gameId], references: [id], onDelete: SetNull)
+  id    String @id @default(cuid())
+  title String
 
   purchasedById String
   purchasedBy   User   @relation("PurchasedBy", fields: [purchasedById], references: [id])
@@ -291,8 +285,6 @@ model GamePurchase {
   purchasedAt  DateTime @default(now())
 
   tokenTransaction TokenTransaction?
-
-  @@index([gameId])
 }
 
 model Badge {

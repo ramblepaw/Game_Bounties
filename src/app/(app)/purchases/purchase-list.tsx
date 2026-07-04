@@ -2,7 +2,6 @@
 
 import { useTransition } from "react";
 import { useRouter } from "next/navigation";
-import Link from "next/link";
 import { deletePurchase } from "@/server/actions/game-purchases";
 
 type Purchase = {
@@ -12,7 +11,6 @@ type Purchase = {
   notes: string | null;
   purchasedAt: Date;
   purchasedBy: { displayName: string };
-  game: { id: string; title: string } | null;
 };
 
 export function PurchaseList({ purchases }: { purchases: Purchase[] }) {
@@ -38,17 +36,7 @@ export function PurchaseList({ purchases }: { purchases: Purchase[] }) {
       <tbody>
         {purchases.map((p) => (
           <tr key={p.id} className="border-b border-neutral-100 dark:border-neutral-800">
-            <td className="py-2 font-medium">
-              {p.game ? (
-                <Link href={`/games/${p.game.id}`} className="text-violet-700 hover:underline">
-                  {p.title}
-                </Link>
-              ) : (
-                <span>
-                  {p.title} <span className="text-xs text-neutral-400">(not tracked)</span>
-                </span>
-              )}
-            </td>
+            <td className="py-2 font-medium">{p.title}</td>
             <td className="py-2">{p.purchasedBy.displayName}</td>
             <td className="py-2">{p.purchasedAt.toLocaleDateString()}</td>
             <td className="py-2 font-medium text-amber-600">🪙 {p.tokenCost}</td>

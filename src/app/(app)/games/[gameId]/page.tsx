@@ -70,18 +70,6 @@ export default async function GameDetailPage({
           <p className="text-sm text-neutral-500 dark:text-neutral-400">Total playtime: {formatMinutes(totalMinutes)}</p>
           {game.summary && <p className="max-w-prose text-sm text-neutral-600 dark:text-neutral-300">{game.summary}</p>}
           {game.notes && <p className="max-w-prose text-sm text-neutral-600 dark:text-neutral-300">{game.notes}</p>}
-          {game.purchases.length > 0 && (
-            <div className="flex flex-col gap-1 text-xs text-amber-700 dark:text-amber-400">
-              {game.purchases.map((p) => (
-                <span key={p.id}>
-                  🪙 Bought for {p.tokenCost} tokens on {p.purchasedAt.toLocaleDateString()}
-                </span>
-              ))}
-            </div>
-          )}
-          <Link href="/purchases" className="text-xs text-violet-600 hover:underline">
-            Log a purchase for this game →
-          </Link>
           <form action={deleteGame.bind(null, gameId)}>
             <Button variant="danger" size="sm" type="submit">
               Delete game

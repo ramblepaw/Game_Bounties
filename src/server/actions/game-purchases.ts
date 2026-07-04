@@ -9,7 +9,6 @@ import { getTokenBalance } from "@/lib/token-ledger";
 
 const purchaseSchema = z.object({
   title: z.string().min(1, "Title is required."),
-  gameId: z.string().optional(),
   tokenCost: z.string().min(1, "Token cost is required."),
   notes: z.string().optional(),
 });
@@ -25,7 +24,6 @@ export async function createPurchase(
 
   const parsed = purchaseSchema.safeParse({
     title: formData.get("title"),
-    gameId: formData.get("gameId"),
     tokenCost: formData.get("tokenCost"),
     notes: formData.get("notes"),
   });
@@ -43,7 +41,6 @@ export async function createPurchase(
     const purchase = await tx.gamePurchase.create({
       data: {
         title: parsed.data.title,
-        gameId: parsed.data.gameId || null,
         tokenCost,
         notes: parsed.data.notes || null,
         purchasedById: session.userId,
