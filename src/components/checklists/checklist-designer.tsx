@@ -18,6 +18,8 @@ import {
   deleteChecklist,
 } from "@/server/actions/checklists";
 import { ImagePicker } from "@/components/checklists/image-picker";
+import { GradientColorPicker } from "@/components/checklists/gradient-color-picker";
+import { resolveBackgroundStyle } from "@/lib/background-style";
 import { FONT_OPTIONS, fontClassForKey } from "@/lib/fonts";
 import { DEFAULT_TOKENS_PER_COMPLETION } from "@/lib/token-economy";
 import { cn } from "@/lib/cn";
@@ -333,8 +335,9 @@ export function ChecklistDesigner({ checklist, gameId }: { checklist: DesignerCh
         <main
           className="flex-1 rounded-xl p-6"
           style={{
-            backgroundColor: activeTab?.canvasBgColor ?? "#1e1830",
-            backgroundImage: activeTab?.canvasBgImageUrl ? `url(${activeTab.canvasBgImageUrl})` : undefined,
+            ...(activeTab?.canvasBgImageUrl
+              ? { backgroundImage: `url(${activeTab.canvasBgImageUrl})` }
+              : resolveBackgroundStyle(activeTab?.canvasBgColor, "#1e1830")),
             backgroundSize: "cover",
             backgroundPosition: "center",
           }}
@@ -354,7 +357,7 @@ export function ChecklistDesigner({ checklist, gameId }: { checklist: DesignerCh
                     setSelectedType("module");
                   }}
                   style={{
-                    backgroundColor: section.bgColor ?? "#241b35",
+                    ...resolveBackgroundStyle(section.bgColor, "#241b35"),
                     borderColor: section.borderColor ?? (isModuleSelected ? "#7c3aed" : "#4c1d95"),
                   }}
                   className={cn(
@@ -395,7 +398,7 @@ export function ChecklistDesigner({ checklist, gameId }: { checklist: DesignerCh
                               setSelectedType("item");
                             }}
                             style={{
-                              backgroundColor: item.bgColor ?? "rgba(139,92,246,0.08)",
+                              ...resolveBackgroundStyle(item.bgColor, "rgba(139,92,246,0.08)"),
                               borderColor: item.borderColor ?? (isItemSelected ? "#7c3aed" : "transparent"),
                               color: item.textColor ?? "#ede9fe",
                               boxShadow: isItemSelected ? "0 0 0 2px #7c3aed" : "none",
@@ -527,13 +530,13 @@ export function ChecklistDesigner({ checklist, gameId }: { checklist: DesignerCh
               {selectedType === "tab" && (
                 <div className="flex flex-col gap-3 rounded-lg border border-neutral-200 p-3 dark:border-neutral-700">
                   <h4 className="text-xs font-bold text-neutral-500">Tab environment</h4>
-                  <div className="flex items-center justify-between">
-                    <label className="text-xs text-neutral-500">Canvas color</label>
-                    <input
-                      type="color"
-                      defaultValue={selectedTab?.canvasBgColor ?? "#1e1830"}
-                      onChange={(e) => updateSelectedData("canvasBgColor", e.target.value)}
-                      className="h-7 w-10 rounded border border-neutral-300"
+                  <div>
+                    <label className="mb-1 block text-xs text-neutral-500">Canvas color</label>
+                    <GradientColorPicker
+                      key={`${selectedTab?.id}-canvas`}
+                      value={selectedTab?.canvasBgColor ?? null}
+                      fallback="#1e1830"
+                      onChange={(value) => updateSelectedData("canvasBgColor", value)}
                     />
                   </div>
                   <ImagePicker
@@ -549,14 +552,13 @@ export function ChecklistDesigner({ checklist, gameId }: { checklist: DesignerCh
                 <h4 className="text-xs font-bold text-neutral-500">
                   {selectedType === "tab" ? "Tab button style" : "Appearance"}
                 </h4>
-                <div className="flex items-center justify-between">
-                  <label className="text-xs text-neutral-500">Background</label>
-                  <input
+                <div>
+                  <label className="mb-1 block text-xs text-neutral-500">Background</label>
+                  <GradientColorPicker
                     key={`${selectedData.id}-bg`}
-                    type="color"
-                    defaultValue={selectedData.bgColor ?? "#241b35"}
-                    onChange={(e) => updateSelectedData("bgColor", e.target.value)}
-                    className="h-7 w-10 rounded border border-neutral-300"
+                    value={selectedData.bgColor ?? null}
+                    fallback="#241b35"
+                    onChange={(value) => updateSelectedData("bgColor", value)}
                   />
                 </div>
                 <div className="flex items-center justify-between">

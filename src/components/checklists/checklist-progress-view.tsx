@@ -3,6 +3,7 @@
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { toggleItem, setCounterValue } from "@/server/actions/checklists";
+import { resolveBackgroundStyle } from "@/lib/background-style";
 import { fontClassForKey } from "@/lib/fonts";
 import { cn } from "@/lib/cn";
 
@@ -163,8 +164,9 @@ export function ChecklistProgressView({ tabs }: { tabs: ProgressTab[] }) {
       <div
         className="rounded-xl p-4"
         style={{
-          backgroundColor: activeTab.canvasBgColor ?? "#1e1830",
-          backgroundImage: activeTab.canvasBgImageUrl ? `url(${activeTab.canvasBgImageUrl})` : undefined,
+          ...(activeTab.canvasBgImageUrl
+            ? { backgroundImage: `url(${activeTab.canvasBgImageUrl})` }
+            : resolveBackgroundStyle(activeTab.canvasBgColor, "#1e1830")),
           backgroundSize: "cover",
           backgroundPosition: "center",
         }}
@@ -173,7 +175,7 @@ export function ChecklistProgressView({ tabs }: { tabs: ProgressTab[] }) {
           {activeTab.sections.map((section) => (
             <div
               key={section.id}
-              style={{ backgroundColor: section.bgColor ?? "#241b35", borderColor: section.borderColor ?? "#4c1d95" }}
+              style={{ ...resolveBackgroundStyle(section.bgColor, "#241b35"), borderColor: section.borderColor ?? "#4c1d95" }}
               className={cn("flex flex-col overflow-hidden rounded-2xl border-2", getColSpanClass(section.span))}
             >
               <div className="border-b border-[#4c1d95]/40 bg-[#1e1830] p-3">
@@ -218,7 +220,7 @@ export function ChecklistProgressView({ tabs }: { tabs: ProgressTab[] }) {
                               }
                         }
                         style={{
-                          backgroundColor: item.bgColor ?? "rgba(139,92,246,0.08)",
+                          ...resolveBackgroundStyle(item.bgColor, "rgba(139,92,246,0.08)"),
                           borderColor: item.borderColor ?? "transparent",
                           color: item.textColor ?? "#ede9fe",
                         }}
