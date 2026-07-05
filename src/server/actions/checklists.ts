@@ -13,6 +13,47 @@ async function requireSession() {
   return session;
 }
 
+/** Style/content fields to carry over when cloning an item -- progress is never copied. */
+function cloneItemFields(item: {
+  title: string;
+  description: string | null;
+  imageUrl: string | null;
+  url: string | null;
+  order: number;
+  bgColor: string | null;
+  textColor: string | null;
+  borderColor: string | null;
+  textSize: number | null;
+  fontFamily: string | null;
+  pixelatedImage: boolean;
+  imageFit: ImageFit;
+  imageScale: number;
+  imagePositionX: number;
+  imagePositionY: number;
+  kind: ItemKind;
+  targetCount: number | null;
+}) {
+  return {
+    title: item.title,
+    description: item.description,
+    imageUrl: item.imageUrl,
+    url: item.url,
+    order: item.order,
+    bgColor: item.bgColor,
+    textColor: item.textColor,
+    borderColor: item.borderColor,
+    textSize: item.textSize,
+    fontFamily: item.fontFamily,
+    pixelatedImage: item.pixelatedImage,
+    imageFit: item.imageFit,
+    imageScale: item.imageScale,
+    imagePositionX: item.imagePositionX,
+    imagePositionY: item.imagePositionY,
+    kind: item.kind,
+    targetCount: item.targetCount,
+  };
+}
+
 const checklistSchema = z.object({
   name: z.string().min(1, "Name is required."),
   description: z.string().optional(),
@@ -129,25 +170,7 @@ export async function duplicateChecklist(gameId: string, checklistId: string): P
               items: {
                 // Style/content copies over; progress (isComplete/completedAt/
                 // currentCount) intentionally does not -- the duplicate starts fresh.
-                create: section.items.map((item) => ({
-                  title: item.title,
-                  description: item.description,
-                  imageUrl: item.imageUrl,
-                  url: item.url,
-                  order: item.order,
-                  bgColor: item.bgColor,
-                  textColor: item.textColor,
-                  borderColor: item.borderColor,
-                  textSize: item.textSize,
-                  fontFamily: item.fontFamily,
-                  pixelatedImage: item.pixelatedImage,
-                  imageFit: item.imageFit,
-                  imageScale: item.imageScale,
-                  imagePositionX: item.imagePositionX,
-                  imagePositionY: item.imagePositionY,
-                  kind: item.kind,
-                  targetCount: item.targetCount,
-                })),
+                create: section.items.map((item) => cloneItemFields(item)),
               },
             })),
           },
@@ -242,6 +265,34 @@ export async function deleteSection(sectionId: string): Promise<void> {
   revalidatePath("/", "layout");
 }
 
+export async function duplicateSection(sectionId: string): Promise<{ id: string }> {
+  await requireSession();
+  const original = await db.checklistSection.findUniqueOrThrow({
+    where: { id: sectionId },
+    include: { items: { orderBy: { order: "asc" } } },
+  });
+  const count = await db.checklistSection.count({ where: { tabId: original.tabId } });
+
+  const duplicate = await db.checklistSection.create({
+    data: {
+      tabId: original.tabId,
+      name: original.name,
+      order: count,
+      itemLayout: original.itemLayout,
+      gridColumns: original.gridColumns,
+      span: original.span,
+      bgColor: original.bgColor,
+      textColor: original.textColor,
+      borderColor: original.borderColor,
+      textSize: original.textSize,
+      items: { create: original.items.map((item) => cloneItemFields(item)) },
+    },
+  });
+
+  revalidatePath("/", "layout");
+  return { id: duplicate.id };
+}
+
 /** Bulk reorder after a drag-and-drop move within a tab. */
 export async function reorderSections(tabId: string, orderedSectionIds: string[]): Promise<void> {
   await requireSession();
@@ -297,6 +348,19 @@ export async function deleteItem(itemId: string): Promise<void> {
   await requireSession();
   await db.checklistItem.delete({ where: { id: itemId } });
   revalidatePath("/", "layout");
+}
+
+export async function duplicateItem(itemId: string): Promise<{ id: string }> {
+  await requireSession();
+  const original = await db.checklistItem.findUniqueOrThrow({ where: { id: itemId } });
+  const count = await db.checklistItem.count({ where: { sectionId: original.sectionId } });
+
+  const duplicate = await db.checklistItem.create({
+    data: { sectionId: original.sectionId, ...cloneItemFields(original), order: count },
+  });
+
+  revalidatePath("/", "layout");
+  return { id: duplicate.id };
 }
 
 export async function toggleItem(itemId: string): Promise<void> {

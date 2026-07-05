@@ -10,10 +10,12 @@ import {
   createSection,
   updateSection,
   deleteSection,
+  duplicateSection,
   reorderSections,
   createItem,
   updateItem,
   deleteItem,
+  duplicateItem,
   updateChecklist,
   deleteChecklist,
   duplicateChecklist,
@@ -22,6 +24,8 @@ import {
 import { ImagePicker } from "@/components/checklists/image-picker";
 import { GradientColorPicker } from "@/components/checklists/gradient-color-picker";
 import { ChecklistSettingsMenu } from "@/components/checklists/checklist-settings-menu";
+import { SliderWithInput } from "@/components/checklists/slider-with-input";
+import { ColorField } from "@/components/checklists/color-field";
 import { resolveBackgroundStyle } from "@/lib/background-style";
 import { FONT_OPTIONS, fontClassForKey } from "@/lib/fonts";
 import { DEFAULT_TOKENS_PER_COMPLETION } from "@/lib/token-economy";
@@ -204,6 +208,21 @@ export function ChecklistDesigner({
     else if (selectedType === "item") deleteItem(selectedId).then(refresh);
     setSelectedId(null);
     setSelectedType(null);
+  }
+
+  async function duplicateSelected() {
+    if (!selectedId) return;
+    if (selectedType === "module") {
+      const { id } = await duplicateSection(selectedId);
+      setSelectedId(id);
+      setSelectedType("module");
+      refresh();
+    } else if (selectedType === "item") {
+      const { id } = await duplicateItem(selectedId);
+      setSelectedId(id);
+      setSelectedType("item");
+      refresh();
+    }
   }
 
   function updateSelectedData(field: string, value: unknown) {
@@ -525,13 +544,24 @@ export function ChecklistDesigner({
                 <h3 className="text-xs font-bold uppercase tracking-widest text-neutral-500">
                   Editing {selectedType}
                 </h3>
-                <button
-                  type="button"
-                  onClick={selectedType === "tab" ? handleDeleteTab : deleteSelected}
-                  className="rounded bg-red-50 px-2 py-1 text-xs font-bold text-red-600 hover:text-red-700"
-                >
-                  Delete
-                </button>
+                <div className="flex items-center gap-1">
+                  {(selectedType === "module" || selectedType === "item") && (
+                    <button
+                      type="button"
+                      onClick={duplicateSelected}
+                      className="rounded bg-neutral-100 px-2 py-1 text-xs font-bold text-neutral-600 hover:text-neutral-900 dark:bg-neutral-800 dark:text-neutral-300 dark:hover:text-white"
+                    >
+                      Duplicate
+                    </button>
+                  )}
+                  <button
+                    type="button"
+                    onClick={selectedType === "tab" ? handleDeleteTab : deleteSelected}
+                    className="rounded bg-red-50 px-2 py-1 text-xs font-bold text-red-600 hover:text-red-700"
+                  >
+                    Delete
+                  </button>
+                </div>
               </div>
 
               <div>
@@ -582,34 +612,28 @@ export function ChecklistDesigner({
                 </div>
                 <div className="flex items-center justify-between">
                   <label className="text-xs text-neutral-500">Text color</label>
-                  <input
+                  <ColorField
                     key={`${selectedData.id}-text`}
-                    type="color"
                     defaultValue={selectedData.textColor ?? "#ede9fe"}
-                    onChange={(e) => updateSelectedData("textColor", e.target.value)}
-                    className="h-7 w-10 rounded border border-neutral-300"
+                    onChange={(color) => updateSelectedData("textColor", color)}
                   />
                 </div>
                 <div className="flex items-center justify-between">
                   <label className="text-xs text-neutral-500">Border color</label>
-                  <input
+                  <ColorField
                     key={`${selectedData.id}-border`}
-                    type="color"
                     defaultValue={selectedData.borderColor ?? "#5b21b6"}
-                    onChange={(e) => updateSelectedData("borderColor", e.target.value)}
-                    className="h-7 w-10 rounded border border-neutral-300"
+                    onChange={(color) => updateSelectedData("borderColor", color)}
                   />
                 </div>
                 <div className="flex items-center justify-between">
                   <label className="text-xs text-neutral-500">Text size (px)</label>
-                  <input
+                  <SliderWithInput
                     key={`${selectedData.id}-size`}
-                    type="range"
+                    value={selectedData.textSize ?? 16}
                     min={10}
                     max={32}
-                    defaultValue={selectedData.textSize ?? 16}
-                    onChange={(e) => updateSelectedData("textSize", parseInt(e.target.value))}
-                    className="w-24"
+                    onChange={(v) => updateSelectedData("textSize", v)}
                   />
                 </div>
                 {selectedType === "item" && (
@@ -679,17 +703,14 @@ export function ChecklistDesigner({
                   </div>
                   {selectedSection.itemLayout === "GRID" && (
                     <div>
-                      <label className="mb-2 flex justify-between text-xs text-neutral-500">
-                        <span>Items per row</span>
-                        <span className="font-bold text-neutral-900">{selectedSection.gridColumns}</span>
-                      </label>
-                      <input
-                        type="range"
+                      <label className="mb-2 block text-xs text-neutral-500">Items per row</label>
+                      <SliderWithInput
+                        key={`${selectedSection.id}-cols`}
+                        value={selectedSection.gridColumns}
                         min={2}
                         max={6}
-                        defaultValue={selectedSection.gridColumns}
-                        onChange={(e) => updateSelectedData("gridColumns", parseInt(e.target.value))}
-                        className="w-full"
+                        onChange={(v) => updateSelectedData("gridColumns", v)}
+                        sliderClassName="w-full"
                       />
                     </div>
                   )}
@@ -812,36 +833,33 @@ export function ChecklistDesigner({
                       </div>
                       <div className="flex items-center justify-between">
                         <label className="text-xs text-neutral-500">Zoom</label>
-                        <input
-                          type="range"
+                        <SliderWithInput
+                          key={`${selectedItem.id}-scale`}
+                          value={selectedItem.imageScale}
                           min={1}
                           max={3}
                           step={0.1}
-                          defaultValue={selectedItem.imageScale}
-                          onChange={(e) => updateSelectedData("imageScale", parseFloat(e.target.value))}
-                          className="w-24"
+                          onChange={(v) => updateSelectedData("imageScale", v)}
                         />
                       </div>
                       <div className="flex items-center justify-between">
                         <label className="text-xs text-neutral-500">Pan X</label>
-                        <input
-                          type="range"
+                        <SliderWithInput
+                          key={`${selectedItem.id}-panx`}
+                          value={selectedItem.imagePositionX}
                           min={0}
                           max={100}
-                          defaultValue={selectedItem.imagePositionX}
-                          onChange={(e) => updateSelectedData("imagePositionX", parseInt(e.target.value))}
-                          className="w-24"
+                          onChange={(v) => updateSelectedData("imagePositionX", v)}
                         />
                       </div>
                       <div className="flex items-center justify-between">
                         <label className="text-xs text-neutral-500">Pan Y</label>
-                        <input
-                          type="range"
+                        <SliderWithInput
+                          key={`${selectedItem.id}-pany`}
+                          value={selectedItem.imagePositionY}
                           min={0}
                           max={100}
-                          defaultValue={selectedItem.imagePositionY}
-                          onChange={(e) => updateSelectedData("imagePositionY", parseInt(e.target.value))}
-                          className="w-24"
+                          onChange={(v) => updateSelectedData("imagePositionY", v)}
                         />
                       </div>
                     </div>

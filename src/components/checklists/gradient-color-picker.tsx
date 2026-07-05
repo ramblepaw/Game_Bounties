@@ -2,6 +2,8 @@
 
 import { useState } from "react";
 import { buildGradient, parseGradient } from "@/lib/background-style";
+import { ColorField } from "@/components/checklists/color-field";
+import { SliderWithInput } from "@/components/checklists/slider-with-input";
 import { cn } from "@/lib/cn";
 
 type Mode = "solid" | 2 | 3;
@@ -81,29 +83,16 @@ export function GradientColorPicker({
         </button>
       </div>
 
-      <div className="flex items-center gap-1.5">
+      <div className="flex flex-wrap items-start gap-1.5">
         {colors.slice(0, mode === "solid" ? 1 : mode).map((c, i) => (
-          <input
-            key={i}
-            type="color"
-            value={c}
-            onChange={(e) => setColorAt(i, e.target.value)}
-            className="h-7 w-10 rounded border border-neutral-300"
-          />
+          <ColorField key={i} defaultValue={c} onChange={(color) => setColorAt(i, color)} />
         ))}
       </div>
 
       {mode !== "solid" && (
         <div className="flex items-center justify-between">
           <label className="text-xs text-neutral-500">Angle</label>
-          <input
-            type="range"
-            min={0}
-            max={360}
-            value={angle}
-            onChange={(e) => setAngleValue(parseInt(e.target.value, 10))}
-            className="w-24"
-          />
+          <SliderWithInput value={angle} min={0} max={360} onChange={setAngleValue} />
         </div>
       )}
     </div>
