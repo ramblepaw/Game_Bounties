@@ -122,6 +122,16 @@ export function NewGameForm() {
         />
       </div>
       <div className="flex flex-col gap-1">
+        <label htmlFor="sortTitle" className="text-sm font-medium">
+          Sort title (optional)
+        </label>
+        <Input
+          id="sortTitle"
+          name="sortTitle"
+          placeholder="Defaults to title above — for controlling shelf order"
+        />
+      </div>
+      <div className="flex flex-col gap-1">
         <label htmlFor="platform" className="text-sm font-medium">
           Platform
         </label>

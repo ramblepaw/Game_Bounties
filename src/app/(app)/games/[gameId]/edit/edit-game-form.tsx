@@ -12,6 +12,7 @@ const initialState: GameFormState = { error: null };
 type EditableGame = {
   id: string;
   title: string;
+  sortTitle: string | null;
   platform: string | null;
   releaseYear: number | null;
   notes: string | null;
@@ -31,6 +32,7 @@ export function EditGameForm({ game }: { game: EditableGame }) {
   const [selected, setSelected] = useState<IgdbSearchResult | null>(null);
 
   const [title, setTitle] = useState(game.title);
+  const [sortTitle, setSortTitle] = useState(game.sortTitle ?? "");
   const [platform, setPlatform] = useState(game.platform ?? "");
   const [releaseYear, setReleaseYear] = useState(game.releaseYear ? String(game.releaseYear) : "");
   const [secondaryTitle, setSecondaryTitle] = useState(game.secondaryTitle ?? "");
@@ -132,6 +134,18 @@ export function EditGameForm({ game }: { game: EditableGame }) {
           onChange={(e) => setTitle(e.target.value)}
           required
           autoFocus
+        />
+      </div>
+      <div className="flex flex-col gap-1">
+        <label htmlFor="sortTitle" className="text-sm font-medium">
+          Sort title (optional)
+        </label>
+        <Input
+          id="sortTitle"
+          name="sortTitle"
+          value={sortTitle}
+          onChange={(e) => setSortTitle(e.target.value)}
+          placeholder="Defaults to title above — for controlling shelf order"
         />
       </div>
       <div className="flex flex-col gap-1">

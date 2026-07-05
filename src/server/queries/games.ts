@@ -2,15 +2,19 @@ import "server-only";
 import { db } from "@/lib/db";
 import { computeChecklistProgress, type ProgressItemInput } from "@/lib/checklist-progress";
 
+function bySortTitle<T extends { title: string; sortTitle: string | null }>(games: T[]): T[] {
+  return [...games].sort((a, b) => (a.sortTitle || a.title).localeCompare(b.sortTitle || b.title));
+}
+
 export async function listGames() {
-  return db.game.findMany({
-    orderBy: { title: "asc" },
+  const games = await db.game.findMany({
     include: {
       checklists: {
         include: { tabs: { include: { sections: { include: { items: true } } } } },
       },
     },
   });
+  return bySortTitle(games);
 }
 
 export function checklistProgress(checklist: {
@@ -25,7 +29,12 @@ export async function getGame(gameId: string) {
 }
 
 export async function listGameTitles() {
-  return db.game.findMany({ orderBy: { title: "asc" }, select: { id: true, title: true } });
+  const games = await db.game.findMany({ select: { id: true, title: true, sortTitle: true } });
+  return bySortTitle(games);
+}
+
+export async function listColorPresets(checklistId: string) {
+  return db.checklistColorPreset.findMany({ where: { checklistId }, orderBy: { createdAt: "asc" } });
 }
 
 export async function getGameWithChecklists(gameId: string) {

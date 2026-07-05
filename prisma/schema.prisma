@@ -60,6 +60,8 @@ model User {
 model Game {
   id            String   @id @default(cuid())
   title         String
+  // Optional override for shelf ordering; falls back to `title` when unset.
+  sortTitle     String?
   platform      String?
   coverImageUrl String?
   releaseYear   Int?
@@ -86,6 +88,9 @@ model Checklist {
   game        Game    @relation(fields: [gameId], references: [id], onDelete: Cascade)
   name        String
   description String?
+  // Free-form rules/notes text, shown in its own tab -- distinct from the
+  // short `description` shown at the top of the checklist page.
+  notes       String?
   order       Int     @default(0)
   // Tokens awarded when this checklist is approved. Null = use the app-wide default.
   tokenReward Int?
@@ -100,8 +105,22 @@ model Checklist {
   completions  ChecklistCompletion[]
   playSessions PlaySession[]
   activeFor    ActiveChecklist[]
+  colorPresets ChecklistColorPreset[]
 
   @@index([gameId])
+}
+
+// A named color saved from the designer's color pickers, scoped to one
+// checklist (not shared app-wide) so each checklist can build its own palette.
+model ChecklistColorPreset {
+  id          String    @id @default(cuid())
+  checklistId String
+  checklist   Checklist @relation(fields: [checklistId], references: [id], onDelete: Cascade)
+  name        String
+  color       String
+  createdAt   DateTime  @default(now())
+
+  @@index([checklistId])
 }
 
 // Marks a checklist as one of a user's currently-"running" checklists — a

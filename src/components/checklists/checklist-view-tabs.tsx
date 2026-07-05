@@ -4,23 +4,26 @@ import { useState } from "react";
 import { cn } from "@/lib/cn";
 
 /**
- * App-level "Checklist / Stats" toggle — deliberately separate from
+ * App-level "Checklist / Notes / Stats" toggle — deliberately separate from
  * ChecklistProgressView's own internal tab state, which switches between the
  * checklist's user-authored content tabs (e.g. "Story"/"Side quests").
  */
 export function ChecklistViewTabs({
   checklistSlot,
+  notesSlot,
   statsSlot,
 }: {
   checklistSlot: React.ReactNode;
+  notesSlot: React.ReactNode;
   statsSlot: React.ReactNode;
 }) {
-  const [view, setView] = useState<"checklist" | "stats">("checklist");
+  const [view, setView] = useState<"checklist" | "notes" | "stats">("checklist");
+  const slots = { checklist: checklistSlot, notes: notesSlot, stats: statsSlot };
 
   return (
     <div className="flex flex-col gap-4">
       <div className="flex gap-2 border-b border-neutral-200 dark:border-neutral-700">
-        {(["checklist", "stats"] as const).map((v) => (
+        {(["checklist", "notes", "stats"] as const).map((v) => (
           <button
             key={v}
             type="button"
@@ -36,7 +39,7 @@ export function ChecklistViewTabs({
           </button>
         ))}
       </div>
-      {view === "checklist" ? checklistSlot : statsSlot}
+      {slots[view]}
     </div>
   );
 }

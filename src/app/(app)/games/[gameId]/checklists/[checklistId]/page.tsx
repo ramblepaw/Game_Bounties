@@ -14,6 +14,7 @@ import { DEFAULT_TOKENS_PER_COMPLETION } from "@/lib/token-economy";
 import { getSession } from "@/lib/auth";
 import { ChecklistProgressView } from "@/components/checklists/checklist-progress-view";
 import { ChecklistStatsPanel } from "@/components/checklists/checklist-stats-panel";
+import { ChecklistNotesPanel } from "@/components/checklists/checklist-notes-panel";
 import { ChecklistViewTabs } from "@/components/checklists/checklist-view-tabs";
 import { SubmitApprovalForm } from "@/components/checklists/submit-approval-form";
 import { SessionTimer } from "@/components/sessions/session-timer";
@@ -131,6 +132,7 @@ export default async function ChecklistProgressPage({
 
       <ChecklistViewTabs
         checklistSlot={<ChecklistProgressView tabs={checklist.tabs} />}
+        notesSlot={<ChecklistNotesPanel checklistId={checklistId} notes={checklist.notes} />}
         statsSlot={
           <ChecklistStatsPanel
             checklistId={checklistId}

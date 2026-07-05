@@ -9,6 +9,7 @@ import { saveUploadedImage, saveImageFromUrl, UploadValidationError } from "@/li
 
 const gameSchema = z.object({
   title: z.string().min(1, "Title is required."),
+  sortTitle: z.string().optional(),
   platform: z.string().optional(),
   releaseYear: z.string().optional(),
   notes: z.string().optional(),
@@ -30,6 +31,7 @@ export async function createGame(
 
   const parsed = gameSchema.safeParse({
     title: formData.get("title"),
+    sortTitle: formData.get("sortTitle"),
     platform: formData.get("platform"),
     releaseYear: formData.get("releaseYear"),
     notes: formData.get("notes"),
@@ -67,6 +69,7 @@ export async function createGame(
   const game = await db.game.create({
     data: {
       title: parsed.data.title,
+      sortTitle: parsed.data.sortTitle || null,
       platform: parsed.data.platform || null,
       releaseYear: parsed.data.releaseYear ? Number(parsed.data.releaseYear) : null,
       notes: parsed.data.notes || null,
@@ -93,6 +96,7 @@ export async function updateGame(
 
   const parsed = gameSchema.safeParse({
     title: formData.get("title"),
+    sortTitle: formData.get("sortTitle"),
     platform: formData.get("platform"),
     releaseYear: formData.get("releaseYear"),
     notes: formData.get("notes"),
@@ -130,6 +134,7 @@ export async function updateGame(
     where: { id: gameId },
     data: {
       title: parsed.data.title,
+      sortTitle: parsed.data.sortTitle || null,
       platform: parsed.data.platform || null,
       releaseYear: parsed.data.releaseYear ? Number(parsed.data.releaseYear) : null,
       notes: parsed.data.notes || null,

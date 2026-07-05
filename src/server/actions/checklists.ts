@@ -100,6 +100,7 @@ export async function updateChecklist(
   data: {
     name?: string;
     description?: string | null;
+    notes?: string | null;
     tokenReward?: number | null;
     badgeName?: string | null;
     badgeIconUrl?: string | null;
@@ -192,6 +193,25 @@ export async function moveChecklist(checklistId: string, newGameId: string): Pro
   });
   revalidatePath("/", "layout");
   redirect(`/games/${newGameId}/checklists/${checklistId}/edit`);
+}
+
+// ---- Color presets ----
+
+export async function createColorPreset(
+  checklistId: string,
+  name: string,
+  color: string,
+): Promise<{ id: string }> {
+  await requireSession();
+  const preset = await db.checklistColorPreset.create({ data: { checklistId, name, color } });
+  revalidatePath("/", "layout");
+  return { id: preset.id };
+}
+
+export async function deleteColorPreset(id: string): Promise<void> {
+  await requireSession();
+  await db.checklistColorPreset.delete({ where: { id } });
+  revalidatePath("/", "layout");
 }
 
 // ---- Tabs ----
@@ -353,11 +373,22 @@ export async function deleteItem(itemId: string): Promise<void> {
 export async function duplicateItem(itemId: string): Promise<{ id: string }> {
   await requireSession();
   const original = await db.checklistItem.findUniqueOrThrow({ where: { id: itemId } });
-  const count = await db.checklistItem.count({ where: { sectionId: original.sectionId } });
+  const siblings = await db.checklistItem.findMany({
+    where: { sectionId: original.sectionId },
+    orderBy: { order: "asc" },
+  });
+  const count = siblings.length;
 
   const duplicate = await db.checklistItem.create({
     data: { sectionId: original.sectionId, ...cloneItemFields(original), order: count },
   });
+
+  // Slot the duplicate in right after the original instead of leaving it
+  // appended at the end.
+  const originalIndex = siblings.findIndex((s) => s.id === itemId);
+  const orderedIds = siblings.map((s) => s.id);
+  orderedIds.splice(originalIndex + 1, 0, duplicate.id);
+  await db.$transaction(renumberItems(orderedIds));
 
   revalidatePath("/", "layout");
   return { id: duplicate.id };
@@ -394,22 +425,47 @@ export async function setCounterValue(itemId: string, value: number): Promise<vo
   revalidatePath("/", "layout");
 }
 
-export async function moveItem(
-  sectionId: string,
+/** Bulk-renumber a section's items to match `orderedIds`, 0-indexed. */
+function renumberItems(orderedIds: string[]) {
+  return orderedIds.map((id, index) => db.checklistItem.update({ where: { id }, data: { order: index } }));
+}
+
+/**
+ * Drag-and-drop move for a target: reorders it within its current module, or
+ * moves it into a different module at `targetIndex`, dragging the rest of
+ * both modules' items along to stay gap-free.
+ */
+export async function moveItemToSection(
   itemId: string,
-  direction: "up" | "down",
+  targetSectionId: string,
+  targetIndex: number,
 ): Promise<void> {
   await requireSession();
-  const siblings = await db.checklistItem.findMany({ where: { sectionId }, orderBy: { order: "asc" } });
-  const index = siblings.findIndex((s) => s.id === itemId);
-  const swapIndex = direction === "up" ? index - 1 : index + 1;
-  if (index === -1 || swapIndex < 0 || swapIndex >= siblings.length) return;
+  const item = await db.checklistItem.findUniqueOrThrow({ where: { id: itemId } });
+  const originSectionId = item.sectionId;
 
-  const current = siblings[index];
-  const swap = siblings[swapIndex];
-  await db.$transaction([
-    db.checklistItem.update({ where: { id: current.id }, data: { order: swap.order } }),
-    db.checklistItem.update({ where: { id: swap.id }, data: { order: current.order } }),
-  ]);
+  const targetSiblings = await db.checklistItem.findMany({
+    where: { sectionId: targetSectionId, id: { not: itemId } },
+    orderBy: { order: "asc" },
+  });
+  const targetIds = targetSiblings.map((s) => s.id);
+  targetIds.splice(Math.max(0, Math.min(targetIndex, targetIds.length)), 0, itemId);
+
+  const updates = [
+    ...(originSectionId !== targetSectionId
+      ? [db.checklistItem.update({ where: { id: itemId }, data: { sectionId: targetSectionId } })]
+      : []),
+    ...renumberItems(targetIds),
+  ];
+
+  if (originSectionId !== targetSectionId) {
+    const originSiblings = await db.checklistItem.findMany({
+      where: { sectionId: originSectionId, id: { not: itemId } },
+      orderBy: { order: "asc" },
+    });
+    updates.push(...renumberItems(originSiblings.map((s) => s.id)));
+  }
+
+  await db.$transaction(updates);
   revalidatePath("/", "layout");
 }

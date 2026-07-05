@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { buildGradient, parseGradient } from "@/lib/background-style";
-import { ColorField } from "@/components/checklists/color-field";
+import { ColorField, type ColorPreset } from "@/components/checklists/color-field";
 import { SliderWithInput } from "@/components/checklists/slider-with-input";
 import { cn } from "@/lib/cn";
 
@@ -18,10 +18,16 @@ export function GradientColorPicker({
   value,
   onChange,
   fallback,
+  presets,
+  onSavePreset,
+  onDeletePreset,
 }: {
   value: string | null;
   onChange: (value: string) => void;
   fallback: string;
+  presets: ColorPreset[];
+  onSavePreset: (color: string) => void;
+  onDeletePreset: (id: string) => void;
 }) {
   const initial = modeFromValue(value, fallback);
   const [mode, setMode] = useState<Mode>(initial.mode);
@@ -85,7 +91,14 @@ export function GradientColorPicker({
 
       <div className="flex flex-wrap items-start gap-1.5">
         {colors.slice(0, mode === "solid" ? 1 : mode).map((c, i) => (
-          <ColorField key={i} defaultValue={c} onChange={(color) => setColorAt(i, color)} />
+          <ColorField
+            key={i}
+            defaultValue={c}
+            onChange={(color) => setColorAt(i, color)}
+            presets={presets}
+            onSavePreset={onSavePreset}
+            onDeletePreset={onDeletePreset}
+          />
         ))}
       </div>
 

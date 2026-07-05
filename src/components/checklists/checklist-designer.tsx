@@ -16,16 +16,19 @@ import {
   updateItem,
   deleteItem,
   duplicateItem,
+  moveItemToSection,
   updateChecklist,
   deleteChecklist,
   duplicateChecklist,
   moveChecklist,
+  createColorPreset,
+  deleteColorPreset,
 } from "@/server/actions/checklists";
 import { ImagePicker } from "@/components/checklists/image-picker";
 import { GradientColorPicker } from "@/components/checklists/gradient-color-picker";
 import { ChecklistSettingsMenu } from "@/components/checklists/checklist-settings-menu";
 import { SliderWithInput } from "@/components/checklists/slider-with-input";
-import { ColorField } from "@/components/checklists/color-field";
+import { ColorField, type ColorPreset } from "@/components/checklists/color-field";
 import { resolveBackgroundStyle } from "@/lib/background-style";
 import { FONT_OPTIONS, fontClassForKey } from "@/lib/fonts";
 import { DEFAULT_TOKENS_PER_COMPLETION } from "@/lib/token-economy";
@@ -133,10 +136,12 @@ export function ChecklistDesigner({
   checklist,
   gameId,
   games,
+  colorPresets: initialColorPresets,
 }: {
   checklist: DesignerChecklist;
   gameId: string;
   games: { id: string; title: string }[];
+  colorPresets: ColorPreset[];
 }) {
   const router = useRouter();
   const [, startTransition] = useTransition();
@@ -144,10 +149,25 @@ export function ChecklistDesigner({
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [selectedType, setSelectedType] = useState<SelectedType>(null);
   const [draggedSectionId, setDraggedSectionId] = useState<string | null>(null);
+  const [draggedItemId, setDraggedItemId] = useState<string | null>(null);
   const [name, setName] = useState(checklist.name);
   const [tokenReward, setTokenReward] = useState(checklist.tokenReward?.toString() ?? "");
   const [badgeName, setBadgeName] = useState(checklist.badgeName ?? "");
   const [badgeIconUrl, setBadgeIconUrl] = useState(checklist.badgeIconUrl ?? "");
+  const [colorPresets, setColorPresets] = useState(initialColorPresets);
+
+  function savePreset(color: string) {
+    const name = window.prompt("Name this color preset:");
+    if (!name) return;
+    createColorPreset(checklist.id, name, color).then(({ id }) => {
+      setColorPresets((prev) => [...prev, { id, name, color }]);
+    });
+  }
+
+  function deletePreset(id: string) {
+    setColorPresets((prev) => prev.filter((p) => p.id !== id));
+    deleteColorPreset(id);
+  }
 
   function refresh() {
     startTransition(() => router.refresh());
@@ -262,6 +282,25 @@ export function ChecklistDesigner({
     setDraggedSectionId(null);
   }
 
+  function handleItemDragStart(e: React.DragEvent, id: string) {
+    e.stopPropagation();
+    setDraggedItemId(id);
+    e.dataTransfer.effectAllowed = "move";
+  }
+
+  function handleItemDragOver(e: React.DragEvent) {
+    e.preventDefault();
+    e.stopPropagation();
+    e.dataTransfer.dropEffect = "move";
+  }
+
+  function handleItemDrop(e: React.DragEvent, targetSectionId: string, targetIndex: number) {
+    e.preventDefault();
+    e.stopPropagation();
+    if (draggedItemId) moveItemToSection(draggedItemId, targetSectionId, targetIndex).then(refresh);
+    setDraggedItemId(null);
+  }
+
   const selectedData: DesignerTab | DesignerSection | DesignerItem | undefined =
     selectedType === "tab" ? selectedTab : selectedType === "module" ? selectedSection : selectedItem;
 
@@ -317,6 +356,9 @@ export function ChecklistDesigner({
                 value={selectedTab?.canvasBgColor ?? null}
                 fallback="#1e1830"
                 onChange={(value) => updateSelectedData("canvasBgColor", value)}
+                presets={colorPresets}
+                onSavePreset={savePreset}
+                onDeletePreset={deletePreset}
               />
             </div>
             <ImagePicker
@@ -339,6 +381,9 @@ export function ChecklistDesigner({
               value={selectedData.bgColor ?? null}
               fallback="#241b35"
               onChange={(value) => updateSelectedData("bgColor", value)}
+              presets={colorPresets}
+              onSavePreset={savePreset}
+              onDeletePreset={deletePreset}
             />
           </div>
           <div className="flex items-center justify-between">
@@ -347,6 +392,9 @@ export function ChecklistDesigner({
               key={`${selectedData.id}-text`}
               defaultValue={selectedData.textColor ?? "#ede9fe"}
               onChange={(color) => updateSelectedData("textColor", color)}
+              presets={colorPresets}
+              onSavePreset={savePreset}
+              onDeletePreset={deletePreset}
             />
           </div>
           <div className="flex items-center justify-between">
@@ -355,6 +403,9 @@ export function ChecklistDesigner({
               key={`${selectedData.id}-border`}
               defaultValue={selectedData.borderColor ?? "#5b21b6"}
               onChange={(color) => updateSelectedData("borderColor", color)}
+              presets={colorPresets}
+              onSavePreset={savePreset}
+              onDeletePreset={deletePreset}
             />
           </div>
           <div className="flex items-center justify-between">
@@ -770,17 +821,23 @@ export function ChecklistDesigner({
 
                   <div className="flex-1 p-3">
                     <div
+                      onDragOver={handleItemDragOver}
+                      onDrop={(e) => handleItemDrop(e, section.id, section.items.length)}
                       className={
                         section.itemLayout === "GRID"
                           ? `grid ${getGridColsClass(section.gridColumns)} gap-3`
                           : "flex flex-col gap-2"
                       }
                     >
-                      {section.items.map((item) => {
+                      {section.items.map((item, itemIndex) => {
                         const isItemSelected = selectedId === item.id && selectedType === "item";
                         return (
                           <div
                             key={item.id}
+                            draggable
+                            onDragStart={(e) => handleItemDragStart(e, item.id)}
+                            onDragOver={handleItemDragOver}
+                            onDrop={(e) => handleItemDrop(e, section.id, itemIndex)}
                             onClick={(e) => {
                               e.stopPropagation();
                               setSelectedId(item.id);
