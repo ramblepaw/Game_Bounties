@@ -68,14 +68,16 @@ function getColSpanClass(span: number): string {
 }
 
 function getGridColsClass(cols: number): string {
+  // Below `sm`, cards at the creator's chosen density (often 4-6) become too
+  // small to tap reliably, so mobile always caps at 2 regardless of cols.
   const map: Record<number, string> = {
-    2: "grid-cols-2",
-    3: "grid-cols-3",
-    4: "grid-cols-4",
-    5: "grid-cols-5",
-    6: "grid-cols-6",
+    2: "grid-cols-2 sm:grid-cols-2",
+    3: "grid-cols-2 sm:grid-cols-3",
+    4: "grid-cols-2 sm:grid-cols-4",
+    5: "grid-cols-2 sm:grid-cols-5",
+    6: "grid-cols-2 sm:grid-cols-6",
   };
-  return map[cols] || "grid-cols-4";
+  return map[cols] || "grid-cols-2 sm:grid-cols-4";
 }
 
 function CounterControl({
@@ -180,7 +182,7 @@ export function ChecklistProgressView({ tabs }: { tabs: ProgressTab[] }) {
             >
               <div className="border-b border-[#4c1d95]/40 bg-[#1e1830] p-3">
                 <h2
-                  className="font-black"
+                  className="truncate font-black"
                   style={{
                     color: section.textColor ?? "#ede9fe",
                     fontSize: section.textSize ? `${section.textSize}px` : "1.125rem",
@@ -274,7 +276,7 @@ export function ChecklistProgressView({ tabs }: { tabs: ProgressTab[] }) {
                             <div className="relative z-10 mt-auto flex w-full flex-col gap-1 bg-gradient-to-t from-black/70 to-transparent p-2 pt-8">
                               <span
                                 className={cn(
-                                  "block text-center font-bold leading-tight",
+                                  "block truncate text-center font-bold leading-tight",
                                   item.isComplete && "line-through",
                                   fontClassForKey(item.fontFamily),
                                 )}
@@ -304,14 +306,18 @@ export function ChecklistProgressView({ tabs }: { tabs: ProgressTab[] }) {
                                 />
                               </div>
                             )}
-                            <div className="flex-1">
+                            <div className="min-w-0 flex-1">
                               <h3
-                                className={cn("font-bold", item.isComplete && "line-through", fontClassForKey(item.fontFamily))}
+                                className={cn(
+                                  "truncate font-bold",
+                                  item.isComplete && "line-through",
+                                  fontClassForKey(item.fontFamily),
+                                )}
                                 style={{ fontSize: item.textSize ? `${item.textSize}px` : "1rem" }}
                               >
                                 {item.title}
                               </h3>
-                              {item.description && <p className="text-xs opacity-70">{item.description}</p>}
+                              {item.description && <p className="truncate text-xs opacity-70">{item.description}</p>}
                             </div>
                             {isCounter && (
                               <CounterControl

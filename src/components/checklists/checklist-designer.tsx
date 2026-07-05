@@ -112,14 +112,16 @@ function getColSpanClass(span: number): string {
 }
 
 function getGridColsClass(cols: number): string {
+  // Below `sm`, cards at the creator's chosen density (often 4-6) become too
+  // small to tap reliably, so mobile always caps at 2 regardless of cols.
   const map: Record<number, string> = {
-    2: "grid-cols-2",
-    3: "grid-cols-3",
-    4: "grid-cols-4",
-    5: "grid-cols-5",
-    6: "grid-cols-6",
+    2: "grid-cols-2 sm:grid-cols-2",
+    3: "grid-cols-2 sm:grid-cols-3",
+    4: "grid-cols-2 sm:grid-cols-4",
+    5: "grid-cols-2 sm:grid-cols-5",
+    6: "grid-cols-2 sm:grid-cols-6",
   };
-  return map[cols] || "grid-cols-4";
+  return map[cols] || "grid-cols-2 sm:grid-cols-4";
 }
 
 export function ChecklistDesigner({
@@ -272,12 +274,12 @@ export function ChecklistDesigner({
         </Link>
       </div>
 
-      <div className="flex items-center gap-3">
+      <div className="flex flex-wrap items-center gap-3">
         <input
           value={name}
           onChange={(e) => setName(e.target.value)}
           onBlur={() => name !== checklist.name && updateChecklist(checklist.id, { name }).then(refresh)}
-          className="max-w-xs rounded-md border border-neutral-300 px-3 py-2 text-lg font-semibold outline-none focus:border-neutral-900"
+          className="w-full max-w-xs rounded-md border border-neutral-300 px-3 py-2 text-lg font-semibold outline-none focus:border-neutral-900"
         />
         <label className="flex items-center gap-2 text-xs text-neutral-500">
           Token reward
@@ -310,8 +312,8 @@ export function ChecklistDesigner({
         />
       </div>
 
-      <div className="flex items-end gap-3 rounded-lg border border-dashed border-neutral-300 p-3 dark:border-neutral-700">
-        <label className="flex flex-col gap-1 text-xs text-neutral-500">
+      <div className="flex flex-wrap items-end gap-3 rounded-lg border border-dashed border-neutral-300 p-3 dark:border-neutral-700">
+        <label className="flex w-full flex-col gap-1 text-xs text-neutral-500 sm:w-56">
           Badge awarded on approval
           <input
             value={badgeName}
@@ -321,10 +323,10 @@ export function ChecklistDesigner({
               updateChecklist(checklist.id, { badgeName: badgeName.trim() || null }).then(refresh)
             }
             placeholder="Completionist (default)"
-            className="w-56 rounded border border-neutral-300 px-2 py-1.5 text-sm text-neutral-900"
+            className="w-full rounded border border-neutral-300 px-2 py-1.5 text-sm text-neutral-900"
           />
         </label>
-        <div className="w-64">
+        <div className="w-full sm:w-64">
           <ImagePicker
             label="Badge icon"
             value={badgeIconUrl}
@@ -369,9 +371,9 @@ export function ChecklistDesigner({
         </button>
       </div>
 
-      <div className="flex gap-6">
+      <div className="flex flex-col gap-6 lg:flex-row">
         <main
-          className="flex-1 rounded-xl p-6"
+          className="min-w-0 flex-1 rounded-xl p-6"
           style={{
             ...(activeTab?.canvasBgImageUrl
               ? { backgroundImage: `url(${activeTab.canvasBgImageUrl})` }
@@ -407,7 +409,7 @@ export function ChecklistDesigner({
                   <div className="flex items-center gap-2 border-b border-[#4c1d95]/40 bg-[#1e1830] p-3">
                     <span className="cursor-grab text-neutral-400">⋮⋮</span>
                     <h2
-                      className="font-black"
+                      className="truncate font-black"
                       style={{
                         color: section.textColor ?? "#ede9fe",
                         fontSize: section.textSize ? `${section.textSize}px` : "1.125rem",
@@ -479,7 +481,10 @@ export function ChecklistDesigner({
                                 </div>
                                 <div className="relative z-10 mt-auto w-full bg-gradient-to-t from-black/70 to-transparent p-2 pt-8">
                                   <span
-                                    className={cn("block text-center font-bold leading-tight", fontClassForKey(item.fontFamily))}
+                                    className={cn(
+                                      "block truncate text-center font-bold leading-tight",
+                                      fontClassForKey(item.fontFamily),
+                                    )}
                                     style={{ fontSize: item.textSize ? `${item.textSize}px` : "0.875rem" }}
                                   >
                                     {item.title}
@@ -499,15 +504,15 @@ export function ChecklistDesigner({
                                     />
                                   </div>
                                 )}
-                                <div>
+                                <div className="min-w-0 flex-1">
                                   <h3
-                                    className={cn("font-bold", fontClassForKey(item.fontFamily))}
+                                    className={cn("truncate font-bold", fontClassForKey(item.fontFamily))}
                                     style={{ fontSize: item.textSize ? `${item.textSize}px` : "1rem" }}
                                   >
                                     {item.title}
                                   </h3>
                                   {item.description && (
-                                    <p className="text-xs opacity-70">{item.description}</p>
+                                    <p className="truncate text-xs opacity-70">{item.description}</p>
                                   )}
                                 </div>
                               </>
@@ -537,7 +542,7 @@ export function ChecklistDesigner({
           </div>
         </main>
 
-        <aside className="w-80 shrink-0 rounded-xl border border-neutral-200 p-5 dark:border-neutral-700">
+        <aside className="w-full rounded-xl border border-neutral-200 p-5 lg:w-80 lg:shrink-0 dark:border-neutral-700">
           {selectedData ? (
             <div className="flex flex-col gap-5">
               <div className="flex items-center justify-between">

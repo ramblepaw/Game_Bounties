@@ -46,13 +46,16 @@ export default async function ChecklistProgressPage({
 
   return (
     <div className="flex flex-col gap-6">
-      <div className="flex items-center justify-between">
-        <Link href={`/games/${gameId}`} className="text-sm text-neutral-500 hover:text-neutral-900">
+      <div className="flex items-center justify-between gap-3">
+        <Link
+          href={`/games/${gameId}`}
+          className="min-w-0 truncate text-sm text-neutral-500 hover:text-neutral-900"
+        >
           ← Back to {checklist.game.title}
         </Link>
         <Link
           href={`/games/${gameId}/checklists/${checklistId}/edit`}
-          className="text-sm text-neutral-500 hover:text-neutral-900"
+          className="shrink-0 text-sm text-neutral-500 hover:text-neutral-900"
         >
           Edit checklist
         </Link>
@@ -60,7 +63,7 @@ export default async function ChecklistProgressPage({
 
       <div>
         <div className="flex items-center gap-2">
-          <h1 className="text-lg font-bold text-violet-950 dark:text-violet-100">{checklist.name}</h1>
+          <h1 className="truncate text-lg font-bold text-violet-950 dark:text-violet-100">{checklist.name}</h1>
           {isRunning && (
             <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-xs font-medium text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300">
               Running

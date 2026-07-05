@@ -58,8 +58,8 @@ export default async function GameDetailPage({
             secondaryCoverImageUrl={game.secondaryCoverImageUrl}
           />
         </div>
-        <div className="flex flex-col gap-2">
-          <h1 className="text-xl font-semibold text-violet-950 dark:text-violet-100">
+        <div className="flex min-w-0 flex-1 flex-col gap-2">
+          <h1 className="truncate text-xl font-semibold text-violet-950 dark:text-violet-100">
             {game.title}
             {game.secondaryTitle && <span className="text-neutral-400"> &amp; {game.secondaryTitle}</span>}
           </h1>

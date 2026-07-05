@@ -8,6 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 
 const SPIN_STEP_MS = 90;
+const SWIPE_THRESHOLD_PX = 40;
 
 type CarouselGame = {
   id: string;
@@ -48,6 +49,7 @@ export function GameCarousel({ games }: { games: CarouselGame[] }) {
   const [query, setQuery] = useState("");
   const [notFound, setNotFound] = useState(false);
   const spinIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const touchStartXRef = useRef<number | null>(null);
   const n = games.length;
 
   useEffect(() => {
@@ -78,6 +80,18 @@ export function GameCarousel({ games }: { games: CarouselGame[] }) {
         spinIntervalRef.current = null;
       }
     }, SPIN_STEP_MS);
+  }
+
+  function handleTouchStart(e: React.TouchEvent) {
+    touchStartXRef.current = e.touches[0].clientX;
+  }
+
+  function handleTouchEnd(e: React.TouchEvent) {
+    if (touchStartXRef.current === null) return;
+    const deltaX = e.changedTouches[0].clientX - touchStartXRef.current;
+    touchStartXRef.current = null;
+    if (deltaX > SWIPE_THRESHOLD_PX) prev();
+    else if (deltaX < -SWIPE_THRESHOLD_PX) next();
   }
 
   function handleSearchSubmit(e: React.FormEvent) {
@@ -116,6 +130,8 @@ export function GameCarousel({ games }: { games: CarouselGame[] }) {
       <div
         className="relative w-full"
         style={{ height: CARD_HEIGHT + 60, perspective: "1600px" }}
+        onTouchStart={handleTouchStart}
+        onTouchEnd={handleTouchEnd}
       >
         <div
           className="absolute left-1/2 top-1/2"
