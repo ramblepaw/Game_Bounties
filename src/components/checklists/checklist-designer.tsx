@@ -112,14 +112,19 @@ function getColSpanClass(span: number): string {
 }
 
 function getGridColsClass(cols: number): string {
-  // Below `sm`, cards at the creator's chosen density (often 4-6) become too
-  // small to tap reliably, so mobile always caps at 2 regardless of cols.
+  // Below `sm`, cards at the creator's chosen density (often much higher for
+  // spreadsheet-style layouts) become too small to tap reliably, so mobile
+  // always caps at 2 regardless of cols.
   const map: Record<number, string> = {
     2: "grid-cols-2 sm:grid-cols-2",
     3: "grid-cols-2 sm:grid-cols-3",
     4: "grid-cols-2 sm:grid-cols-4",
     5: "grid-cols-2 sm:grid-cols-5",
     6: "grid-cols-2 sm:grid-cols-6",
+    7: "grid-cols-2 sm:grid-cols-7",
+    8: "grid-cols-2 sm:grid-cols-8",
+    9: "grid-cols-2 sm:grid-cols-9",
+    10: "grid-cols-2 sm:grid-cols-10",
   };
   return map[cols] || "grid-cols-2 sm:grid-cols-4";
 }
@@ -713,7 +718,7 @@ export function ChecklistDesigner({
                         key={`${selectedSection.id}-cols`}
                         value={selectedSection.gridColumns}
                         min={2}
-                        max={6}
+                        max={10}
                         onChange={(v) => updateSelectedData("gridColumns", v)}
                         sliderClassName="w-full"
                       />
