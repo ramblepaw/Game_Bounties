@@ -76,6 +76,90 @@ export async function deleteChecklist(gameId: string, checklistId: string): Prom
   redirect(`/games/${gameId}`);
 }
 
+export async function duplicateChecklist(gameId: string, checklistId: string): Promise<void> {
+  await requireSession();
+
+  const original = await db.checklist.findUniqueOrThrow({
+    where: { id: checklistId },
+    include: {
+      tabs: {
+        orderBy: { order: "asc" },
+        include: {
+          sections: {
+            orderBy: { order: "asc" },
+            include: { items: { orderBy: { order: "asc" } } },
+          },
+        },
+      },
+    },
+  });
+
+  const count = await db.checklist.count({ where: { gameId } });
+
+  const duplicate = await db.checklist.create({
+    data: {
+      gameId,
+      name: `${original.name} (copy)`,
+      description: original.description,
+      order: count,
+      tokenReward: original.tokenReward,
+      badgeName: original.badgeName,
+      badgeIconUrl: original.badgeIconUrl,
+      tabs: {
+        create: original.tabs.map((tab) => ({
+          title: tab.title,
+          order: tab.order,
+          canvasBgColor: tab.canvasBgColor,
+          canvasBgImageUrl: tab.canvasBgImageUrl,
+          bgColor: tab.bgColor,
+          textColor: tab.textColor,
+          borderColor: tab.borderColor,
+          textSize: tab.textSize,
+          sections: {
+            create: tab.sections.map((section) => ({
+              name: section.name,
+              order: section.order,
+              itemLayout: section.itemLayout,
+              gridColumns: section.gridColumns,
+              span: section.span,
+              bgColor: section.bgColor,
+              textColor: section.textColor,
+              borderColor: section.borderColor,
+              textSize: section.textSize,
+              items: {
+                // Style/content copies over; progress (isComplete/completedAt/
+                // currentCount) intentionally does not -- the duplicate starts fresh.
+                create: section.items.map((item) => ({
+                  title: item.title,
+                  description: item.description,
+                  imageUrl: item.imageUrl,
+                  url: item.url,
+                  order: item.order,
+                  bgColor: item.bgColor,
+                  textColor: item.textColor,
+                  borderColor: item.borderColor,
+                  textSize: item.textSize,
+                  fontFamily: item.fontFamily,
+                  pixelatedImage: item.pixelatedImage,
+                  imageFit: item.imageFit,
+                  imageScale: item.imageScale,
+                  imagePositionX: item.imagePositionX,
+                  imagePositionY: item.imagePositionY,
+                  kind: item.kind,
+                  targetCount: item.targetCount,
+                })),
+              },
+            })),
+          },
+        })),
+      },
+    },
+  });
+
+  revalidatePath(`/games/${gameId}`);
+  redirect(`/games/${gameId}/checklists/${duplicate.id}/edit`);
+}
+
 // ---- Tabs ----
 
 export async function createTab(checklistId: string, title?: string): Promise<{ id: string }> {
