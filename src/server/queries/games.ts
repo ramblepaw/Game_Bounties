@@ -24,6 +24,10 @@ export async function getGame(gameId: string) {
   return db.game.findUnique({ where: { id: gameId } });
 }
 
+export async function listGameTitles() {
+  return db.game.findMany({ orderBy: { title: "asc" }, select: { id: true, title: true } });
+}
+
 export async function getGameWithChecklists(gameId: string) {
   return db.game.findUnique({
     where: { id: gameId },

@@ -17,6 +17,7 @@ import {
   updateChecklist,
   deleteChecklist,
   duplicateChecklist,
+  moveChecklist,
 } from "@/server/actions/checklists";
 import { ImagePicker } from "@/components/checklists/image-picker";
 import { GradientColorPicker } from "@/components/checklists/gradient-color-picker";
@@ -117,7 +118,15 @@ function getGridColsClass(cols: number): string {
   return map[cols] || "grid-cols-4";
 }
 
-export function ChecklistDesigner({ checklist, gameId }: { checklist: DesignerChecklist; gameId: string }) {
+export function ChecklistDesigner({
+  checklist,
+  gameId,
+  games,
+}: {
+  checklist: DesignerChecklist;
+  gameId: string;
+  games: { id: string; title: string }[];
+}) {
   const router = useRouter();
   const [, startTransition] = useTransition();
   const [activeTabId, setActiveTabId] = useState(checklist.tabs[0]?.id ?? "");
@@ -158,6 +167,10 @@ export function ChecklistDesigner({ checklist, gameId }: { checklist: DesignerCh
 
   function handleDuplicateChecklist() {
     duplicateChecklist(gameId, checklist.id);
+  }
+
+  function handleMoveChecklist(newGameId: string) {
+    moveChecklist(checklist.id, newGameId);
   }
 
   async function handleDeleteTab() {
@@ -269,7 +282,13 @@ export function ChecklistDesigner({ checklist, gameId }: { checklist: DesignerCh
         >
           + Add Module
         </button>
-        <ChecklistSettingsMenu onDuplicate={handleDuplicateChecklist} onDelete={handleDeleteChecklist} />
+        <ChecklistSettingsMenu
+          currentGameId={gameId}
+          games={games}
+          onDuplicate={handleDuplicateChecklist}
+          onMove={handleMoveChecklist}
+          onDelete={handleDeleteChecklist}
+        />
       </div>
 
       <div className="flex items-end gap-3 rounded-lg border border-dashed border-neutral-300 p-3 dark:border-neutral-700">

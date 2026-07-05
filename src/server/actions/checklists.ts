@@ -160,6 +160,17 @@ export async function duplicateChecklist(gameId: string, checklistId: string): P
   redirect(`/games/${gameId}/checklists/${duplicate.id}/edit`);
 }
 
+export async function moveChecklist(checklistId: string, newGameId: string): Promise<void> {
+  await requireSession();
+  const count = await db.checklist.count({ where: { gameId: newGameId } });
+  await db.checklist.update({
+    where: { id: checklistId },
+    data: { gameId: newGameId, order: count },
+  });
+  revalidatePath("/", "layout");
+  redirect(`/games/${newGameId}/checklists/${checklistId}/edit`);
+}
+
 // ---- Tabs ----
 
 export async function createTab(checklistId: string, title?: string): Promise<{ id: string }> {
