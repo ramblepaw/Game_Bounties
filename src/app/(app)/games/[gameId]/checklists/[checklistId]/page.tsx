@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { getChecklistDetail, checklistProgress } from "@/server/queries/games";
+import { computeChecklistProgress } from "@/lib/checklist-progress";
 import {
   getActiveSessionFor,
   totalPlaytimeMinutesForChecklist,
@@ -41,6 +42,10 @@ export default async function ChecklistProgressPage({
   ]);
 
   const progress = checklistProgress(checklist);
+  const tabProgress = checklist.tabs.map((tab) => ({
+    tab: tab.title,
+    percent: computeChecklistProgress(tab.sections.flatMap((s) => s.items)).percent,
+  }));
   const latestCompletion = checklist.completions[0];
   const isRunning = activeIds.has(checklistId);
 
@@ -136,6 +141,7 @@ export default async function ChecklistProgressPage({
             progress={progress}
             estimate={estimate}
             sessions={sessions}
+            tabProgress={tabProgress}
           />
         }
       />

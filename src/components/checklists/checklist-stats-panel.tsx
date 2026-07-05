@@ -1,6 +1,7 @@
 import { formatMinutes } from "@/lib/format";
 import type { CompletionEstimate } from "@/lib/estimation";
 import { ProgressBar } from "@/components/checklists/progress-bar";
+import { TabCompletionTable } from "@/components/stats/tab-completion-table";
 import { SessionRow } from "@/app/(app)/sessions/session-row";
 
 type StatsSession = {
@@ -22,6 +23,7 @@ export function ChecklistStatsPanel({
   progress,
   estimate,
   sessions,
+  tabProgress,
 }: {
   checklistId: string;
   checklistName: string;
@@ -31,6 +33,7 @@ export function ChecklistStatsPanel({
   progress: { completed: number; total: number; percent: number };
   estimate: CompletionEstimate;
   sessions: StatsSession[];
+  tabProgress: { tab: string; percent: number }[];
 }) {
   const checklists = [{ id: checklistId, name: checklistName, game: { title: gameTitle } }];
 
@@ -64,6 +67,13 @@ export function ChecklistStatsPanel({
             : "Not enough progress history yet to estimate a completion date."}
         </p>
       </div>
+
+      {tabProgress.length > 1 && (
+        <div>
+          <h3 className="mb-2 font-medium text-fuchsia-700 dark:text-fuchsia-400">Completion by tab</h3>
+          <TabCompletionTable rates={tabProgress} />
+        </div>
+      )}
 
       <div>
         <h3 className="mb-2 font-medium text-fuchsia-700 dark:text-fuchsia-400">Session log</h3>

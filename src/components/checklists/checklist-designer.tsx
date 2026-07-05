@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { Fragment, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import {
@@ -265,6 +265,348 @@ export function ChecklistDesigner({
   const selectedData: DesignerTab | DesignerSection | DesignerItem | undefined =
     selectedType === "tab" ? selectedTab : selectedType === "module" ? selectedSection : selectedItem;
 
+  // Rendered from two spots: the side-by-side panel at `lg` and up, and --
+  // when stacked on narrow screens -- inline right after the module being
+  // edited, so it doesn't end up stranded at the bottom of the whole canvas.
+  function renderPropertiesPanel() {
+    return selectedData ? (
+      <div className="flex flex-col gap-5">
+        <div className="flex items-center justify-between">
+          <h3 className="text-xs font-bold uppercase tracking-widest text-neutral-500">
+            Editing {selectedType}
+          </h3>
+          <div className="flex items-center gap-1">
+            {(selectedType === "module" || selectedType === "item") && (
+              <button
+                type="button"
+                onClick={duplicateSelected}
+                className="rounded bg-neutral-100 px-2 py-1 text-xs font-bold text-neutral-600 hover:text-neutral-900 dark:bg-neutral-800 dark:text-neutral-300 dark:hover:text-white"
+              >
+                Duplicate
+              </button>
+            )}
+            <button
+              type="button"
+              onClick={selectedType === "tab" ? handleDeleteTab : deleteSelected}
+              className="rounded bg-red-50 px-2 py-1 text-xs font-bold text-red-600 hover:text-red-700"
+            >
+              Delete
+            </button>
+          </div>
+        </div>
+
+        <div>
+          <label className="mb-1 block text-xs text-neutral-500">Title</label>
+          <input
+            key={selectedData.id}
+            defaultValue={"title" in selectedData ? selectedData.title : selectedData.name}
+            onBlur={(e) =>
+              updateSelectedData(selectedType === "module" ? "name" : "title", e.target.value)
+            }
+            className="w-full rounded-md border border-neutral-300 px-3 py-2 text-sm outline-none focus:border-neutral-900"
+          />
+        </div>
+
+        {selectedType === "tab" && (
+          <div className="flex flex-col gap-3 rounded-lg border border-neutral-200 p-3 dark:border-neutral-700">
+            <h4 className="text-xs font-bold text-neutral-500">Tab environment</h4>
+            <div>
+              <label className="mb-1 block text-xs text-neutral-500">Canvas color</label>
+              <GradientColorPicker
+                key={`${selectedTab?.id}-canvas`}
+                value={selectedTab?.canvasBgColor ?? null}
+                fallback="#1e1830"
+                onChange={(value) => updateSelectedData("canvasBgColor", value)}
+              />
+            </div>
+            <ImagePicker
+              label="Canvas background image"
+              value={selectedTab?.canvasBgImageUrl ?? ""}
+              onChange={(url) => updateSelectedData("canvasBgImageUrl", url)}
+              kind="covers"
+            />
+          </div>
+        )}
+
+        <div className="flex flex-col gap-3 rounded-lg border border-neutral-200 p-3 dark:border-neutral-700">
+          <h4 className="text-xs font-bold text-neutral-500">
+            {selectedType === "tab" ? "Tab button style" : "Appearance"}
+          </h4>
+          <div>
+            <label className="mb-1 block text-xs text-neutral-500">Background</label>
+            <GradientColorPicker
+              key={`${selectedData.id}-bg`}
+              value={selectedData.bgColor ?? null}
+              fallback="#241b35"
+              onChange={(value) => updateSelectedData("bgColor", value)}
+            />
+          </div>
+          <div className="flex items-center justify-between">
+            <label className="text-xs text-neutral-500">Text color</label>
+            <ColorField
+              key={`${selectedData.id}-text`}
+              defaultValue={selectedData.textColor ?? "#ede9fe"}
+              onChange={(color) => updateSelectedData("textColor", color)}
+            />
+          </div>
+          <div className="flex items-center justify-between">
+            <label className="text-xs text-neutral-500">Border color</label>
+            <ColorField
+              key={`${selectedData.id}-border`}
+              defaultValue={selectedData.borderColor ?? "#5b21b6"}
+              onChange={(color) => updateSelectedData("borderColor", color)}
+            />
+          </div>
+          <div className="flex items-center justify-between">
+            <label className="text-xs text-neutral-500">Text size (px)</label>
+            <SliderWithInput
+              key={`${selectedData.id}-size`}
+              value={selectedData.textSize ?? 16}
+              min={10}
+              max={32}
+              onChange={(v) => updateSelectedData("textSize", v)}
+            />
+          </div>
+          {selectedType === "item" && (
+            <div className="flex items-center justify-between">
+              <label className="text-xs text-neutral-500">Font</label>
+              <select
+                key={`${selectedData.id}-font`}
+                defaultValue={selectedItem?.fontFamily ?? ""}
+                onChange={(e) => updateSelectedData("fontFamily", e.target.value || null)}
+                className="rounded-md border border-neutral-300 px-2 py-1 text-xs"
+              >
+                <option value="">Default</option>
+                {FONT_OPTIONS.map((f) => (
+                  <option key={f.key} value={f.key}>
+                    {f.label}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
+        </div>
+
+        {selectedType === "module" && selectedSection && (
+          <div className="flex flex-col gap-3 rounded-lg border border-neutral-200 p-3 dark:border-neutral-700">
+            <div>
+              <label className="mb-2 block text-xs font-bold text-neutral-500">Module width</label>
+              <div className="grid grid-cols-4 gap-1 rounded-lg border border-neutral-200 bg-neutral-50 p-1 dark:border-neutral-700 dark:bg-neutral-800">
+                {SPANS.map((span) => (
+                  <button
+                    key={span}
+                    type="button"
+                    onClick={() => updateSelectedData("span", span)}
+                    className={cn(
+                      "rounded py-1 text-xs font-bold",
+                      selectedSection.span === span ? "bg-white shadow" : "text-neutral-500",
+                    )}
+                  >
+                    {span * 25}%
+                  </button>
+                ))}
+              </div>
+            </div>
+            <div>
+              <label className="mb-2 block text-xs font-bold text-neutral-500">Layout</label>
+              <div className="grid grid-cols-2 gap-1 rounded-lg border border-neutral-200 bg-neutral-50 p-1 dark:border-neutral-700 dark:bg-neutral-800">
+                <button
+                  type="button"
+                  onClick={() => updateSelectedData("itemLayout", "LIST")}
+                  className={cn(
+                    "rounded py-1 text-xs font-bold",
+                    selectedSection.itemLayout === "LIST" ? "bg-white shadow" : "text-neutral-500",
+                  )}
+                >
+                  List
+                </button>
+                <button
+                  type="button"
+                  onClick={() => updateSelectedData("itemLayout", "GRID")}
+                  className={cn(
+                    "rounded py-1 text-xs font-bold",
+                    selectedSection.itemLayout === "GRID" ? "bg-white shadow" : "text-neutral-500",
+                  )}
+                >
+                  Grid
+                </button>
+              </div>
+            </div>
+            {selectedSection.itemLayout === "GRID" && (
+              <div>
+                <label className="mb-2 block text-xs text-neutral-500">Items per row</label>
+                <SliderWithInput
+                  key={`${selectedSection.id}-cols`}
+                  value={selectedSection.gridColumns}
+                  min={2}
+                  max={10}
+                  onChange={(v) => updateSelectedData("gridColumns", v)}
+                  sliderClassName="w-full"
+                />
+              </div>
+            )}
+          </div>
+        )}
+
+        {selectedType === "item" && selectedItem && (
+          <>
+            <div>
+              <label className="mb-2 block text-xs font-bold text-neutral-500">Type</label>
+              <div className="grid grid-cols-2 gap-1 rounded-lg border border-neutral-200 bg-neutral-50 p-1 dark:border-neutral-700 dark:bg-neutral-800">
+                <button
+                  type="button"
+                  onClick={() => updateSelectedData("kind", "CHECKBOX")}
+                  className={cn(
+                    "rounded py-1 text-xs font-bold",
+                    selectedItem.kind !== "COUNTER" ? "bg-white shadow" : "text-neutral-500",
+                  )}
+                >
+                  Checkbox
+                </button>
+                <button
+                  type="button"
+                  onClick={() => updateSelectedData("kind", "COUNTER")}
+                  className={cn(
+                    "rounded py-1 text-xs font-bold",
+                    selectedItem.kind === "COUNTER" ? "bg-white shadow" : "text-neutral-500",
+                  )}
+                >
+                  Counter
+                </button>
+              </div>
+              {selectedItem.kind === "COUNTER" && (
+                <label className="mt-2 flex items-center justify-between text-xs text-neutral-500">
+                  Target count
+                  <input
+                    key={`${selectedItem.id}-target`}
+                    type="number"
+                    min={1}
+                    defaultValue={selectedItem.targetCount ?? 100}
+                    onBlur={(e) =>
+                      updateSelectedData("targetCount", Math.max(1, parseInt(e.target.value, 10) || 1))
+                    }
+                    className="w-20 rounded border border-neutral-300 px-1.5 py-1 text-sm text-neutral-900"
+                  />
+                </label>
+              )}
+            </div>
+
+            <div>
+              <label className="mb-1 block text-xs text-neutral-500">Description</label>
+              <textarea
+                key={`${selectedItem.id}-desc`}
+                defaultValue={selectedItem.description ?? ""}
+                onBlur={(e) => updateSelectedData("description", e.target.value || null)}
+                rows={2}
+                className="w-full resize-none rounded-md border border-neutral-300 px-3 py-2 text-sm outline-none focus:border-neutral-900"
+              />
+            </div>
+
+            <div>
+              <label className="mb-1 block text-xs text-neutral-500">
+                Reference link (guide, wiki, etc.)
+              </label>
+              <input
+                key={`${selectedItem.id}-url`}
+                type="url"
+                defaultValue={selectedItem.url ?? ""}
+                onBlur={(e) => updateSelectedData("url", e.target.value || null)}
+                placeholder="https://..."
+                className="w-full rounded-md border border-neutral-300 px-3 py-2 text-sm outline-none focus:border-neutral-900"
+              />
+            </div>
+
+            <div className="flex flex-col gap-3 rounded-lg border border-neutral-200 p-3 dark:border-neutral-700">
+              <ImagePicker
+                label="Item image"
+                value={selectedItem.imageUrl ?? ""}
+                onChange={(url) => updateSelectedData("imageUrl", url)}
+                kind="items"
+              />
+
+              <div className="flex items-center gap-2 border-t border-neutral-100 pt-3 dark:border-neutral-800">
+                <input
+                  type="checkbox"
+                  id="pixelated"
+                  checked={selectedItem.pixelatedImage}
+                  onChange={(e) => updateSelectedData("pixelatedImage", e.target.checked)}
+                  className="h-4 w-4"
+                />
+                <label htmlFor="pixelated" className="cursor-pointer select-none text-xs text-neutral-600">
+                  <span className="block font-bold">Pixel art mode</span>
+                  <span className="text-[10px] text-neutral-400">Keeps small sprites sharp</span>
+                </label>
+              </div>
+
+              <div className="flex flex-col gap-2 border-t border-neutral-100 pt-3 dark:border-neutral-800">
+                <label className="text-xs font-bold text-neutral-500">Image framing</label>
+                <div className="grid grid-cols-2 gap-1 rounded-lg border border-neutral-200 bg-neutral-50 p-1 dark:border-neutral-700 dark:bg-neutral-800">
+                  <button
+                    type="button"
+                    onClick={() => updateSelectedData("imageFit", "CONTAIN")}
+                    className={cn(
+                      "rounded py-1 text-xs font-bold",
+                      selectedItem.imageFit !== "COVER" ? "bg-white shadow" : "text-neutral-500",
+                    )}
+                  >
+                    Contain
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => updateSelectedData("imageFit", "COVER")}
+                    className={cn(
+                      "rounded py-1 text-xs font-bold",
+                      selectedItem.imageFit === "COVER" ? "bg-white shadow" : "text-neutral-500",
+                    )}
+                  >
+                    Cover
+                  </button>
+                </div>
+                <div className="flex items-center justify-between">
+                  <label className="text-xs text-neutral-500">Zoom</label>
+                  <SliderWithInput
+                    key={`${selectedItem.id}-scale`}
+                    value={selectedItem.imageScale}
+                    min={1}
+                    max={3}
+                    step={0.1}
+                    onChange={(v) => updateSelectedData("imageScale", v)}
+                  />
+                </div>
+                <div className="flex items-center justify-between">
+                  <label className="text-xs text-neutral-500">Pan X</label>
+                  <SliderWithInput
+                    key={`${selectedItem.id}-panx`}
+                    value={selectedItem.imagePositionX}
+                    min={0}
+                    max={100}
+                    onChange={(v) => updateSelectedData("imagePositionX", v)}
+                  />
+                </div>
+                <div className="flex items-center justify-between">
+                  <label className="text-xs text-neutral-500">Pan Y</label>
+                  <SliderWithInput
+                    key={`${selectedItem.id}-pany`}
+                    value={selectedItem.imagePositionY}
+                    min={0}
+                    max={100}
+                    onChange={(v) => updateSelectedData("imagePositionY", v)}
+                  />
+                </div>
+              </div>
+            </div>
+          </>
+        )}
+      </div>
+    ) : (
+      <div className="mt-4 rounded-xl border border-dashed border-neutral-300 p-6 text-center">
+        <p className="text-xs leading-relaxed text-neutral-500">
+          Click any Module, Target, or Tab to edit it.
+        </p>
+      </div>
+    );
+  }
+
   return (
     <div className="flex flex-col gap-4">
       <div className="flex items-center justify-between">
@@ -390,9 +732,11 @@ export function ChecklistDesigner({
           <div className="grid auto-rows-min grid-cols-4 gap-4">
             {(activeTab?.sections ?? []).map((section) => {
               const isModuleSelected = selectedId === section.id && selectedType === "module";
+              const isPanelForThisModule =
+                isModuleSelected || (selectedType === "item" && section.items.some((i) => i.id === selectedId));
               return (
+                <Fragment key={section.id}>
                 <div
-                  key={section.id}
                   draggable
                   onDragStart={(e) => handleDragStart(e, section.id)}
                   onDragOver={handleDragOver}
@@ -542,348 +886,24 @@ export function ChecklistDesigner({
                     </div>
                   </div>
                 </div>
+                {isPanelForThisModule && (
+                  <div className="col-span-4 rounded-xl border border-neutral-200 p-5 lg:hidden dark:border-neutral-700">
+                    {renderPropertiesPanel()}
+                  </div>
+                )}
+                </Fragment>
               );
             })}
           </div>
         </main>
 
-        <aside className="w-full rounded-xl border border-neutral-200 p-5 lg:w-80 lg:shrink-0 dark:border-neutral-700">
-          {selectedData ? (
-            <div className="flex flex-col gap-5">
-              <div className="flex items-center justify-between">
-                <h3 className="text-xs font-bold uppercase tracking-widest text-neutral-500">
-                  Editing {selectedType}
-                </h3>
-                <div className="flex items-center gap-1">
-                  {(selectedType === "module" || selectedType === "item") && (
-                    <button
-                      type="button"
-                      onClick={duplicateSelected}
-                      className="rounded bg-neutral-100 px-2 py-1 text-xs font-bold text-neutral-600 hover:text-neutral-900 dark:bg-neutral-800 dark:text-neutral-300 dark:hover:text-white"
-                    >
-                      Duplicate
-                    </button>
-                  )}
-                  <button
-                    type="button"
-                    onClick={selectedType === "tab" ? handleDeleteTab : deleteSelected}
-                    className="rounded bg-red-50 px-2 py-1 text-xs font-bold text-red-600 hover:text-red-700"
-                  >
-                    Delete
-                  </button>
-                </div>
-              </div>
-
-              <div>
-                <label className="mb-1 block text-xs text-neutral-500">Title</label>
-                <input
-                  key={selectedData.id}
-                  defaultValue={"title" in selectedData ? selectedData.title : selectedData.name}
-                  onBlur={(e) =>
-                    updateSelectedData(selectedType === "module" ? "name" : "title", e.target.value)
-                  }
-                  className="w-full rounded-md border border-neutral-300 px-3 py-2 text-sm outline-none focus:border-neutral-900"
-                />
-              </div>
-
-              {selectedType === "tab" && (
-                <div className="flex flex-col gap-3 rounded-lg border border-neutral-200 p-3 dark:border-neutral-700">
-                  <h4 className="text-xs font-bold text-neutral-500">Tab environment</h4>
-                  <div>
-                    <label className="mb-1 block text-xs text-neutral-500">Canvas color</label>
-                    <GradientColorPicker
-                      key={`${selectedTab?.id}-canvas`}
-                      value={selectedTab?.canvasBgColor ?? null}
-                      fallback="#1e1830"
-                      onChange={(value) => updateSelectedData("canvasBgColor", value)}
-                    />
-                  </div>
-                  <ImagePicker
-                    label="Canvas background image"
-                    value={selectedTab?.canvasBgImageUrl ?? ""}
-                    onChange={(url) => updateSelectedData("canvasBgImageUrl", url)}
-                    kind="covers"
-                  />
-                </div>
-              )}
-
-              <div className="flex flex-col gap-3 rounded-lg border border-neutral-200 p-3 dark:border-neutral-700">
-                <h4 className="text-xs font-bold text-neutral-500">
-                  {selectedType === "tab" ? "Tab button style" : "Appearance"}
-                </h4>
-                <div>
-                  <label className="mb-1 block text-xs text-neutral-500">Background</label>
-                  <GradientColorPicker
-                    key={`${selectedData.id}-bg`}
-                    value={selectedData.bgColor ?? null}
-                    fallback="#241b35"
-                    onChange={(value) => updateSelectedData("bgColor", value)}
-                  />
-                </div>
-                <div className="flex items-center justify-between">
-                  <label className="text-xs text-neutral-500">Text color</label>
-                  <ColorField
-                    key={`${selectedData.id}-text`}
-                    defaultValue={selectedData.textColor ?? "#ede9fe"}
-                    onChange={(color) => updateSelectedData("textColor", color)}
-                  />
-                </div>
-                <div className="flex items-center justify-between">
-                  <label className="text-xs text-neutral-500">Border color</label>
-                  <ColorField
-                    key={`${selectedData.id}-border`}
-                    defaultValue={selectedData.borderColor ?? "#5b21b6"}
-                    onChange={(color) => updateSelectedData("borderColor", color)}
-                  />
-                </div>
-                <div className="flex items-center justify-between">
-                  <label className="text-xs text-neutral-500">Text size (px)</label>
-                  <SliderWithInput
-                    key={`${selectedData.id}-size`}
-                    value={selectedData.textSize ?? 16}
-                    min={10}
-                    max={32}
-                    onChange={(v) => updateSelectedData("textSize", v)}
-                  />
-                </div>
-                {selectedType === "item" && (
-                  <div className="flex items-center justify-between">
-                    <label className="text-xs text-neutral-500">Font</label>
-                    <select
-                      key={`${selectedData.id}-font`}
-                      defaultValue={selectedItem?.fontFamily ?? ""}
-                      onChange={(e) => updateSelectedData("fontFamily", e.target.value || null)}
-                      className="rounded-md border border-neutral-300 px-2 py-1 text-xs"
-                    >
-                      <option value="">Default</option>
-                      {FONT_OPTIONS.map((f) => (
-                        <option key={f.key} value={f.key}>
-                          {f.label}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                )}
-              </div>
-
-              {selectedType === "module" && selectedSection && (
-                <div className="flex flex-col gap-3 rounded-lg border border-neutral-200 p-3 dark:border-neutral-700">
-                  <div>
-                    <label className="mb-2 block text-xs font-bold text-neutral-500">Module width</label>
-                    <div className="grid grid-cols-4 gap-1 rounded-lg border border-neutral-200 bg-neutral-50 p-1 dark:border-neutral-700 dark:bg-neutral-800">
-                      {SPANS.map((span) => (
-                        <button
-                          key={span}
-                          type="button"
-                          onClick={() => updateSelectedData("span", span)}
-                          className={cn(
-                            "rounded py-1 text-xs font-bold",
-                            selectedSection.span === span ? "bg-white shadow" : "text-neutral-500",
-                          )}
-                        >
-                          {span * 25}%
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                  <div>
-                    <label className="mb-2 block text-xs font-bold text-neutral-500">Layout</label>
-                    <div className="grid grid-cols-2 gap-1 rounded-lg border border-neutral-200 bg-neutral-50 p-1 dark:border-neutral-700 dark:bg-neutral-800">
-                      <button
-                        type="button"
-                        onClick={() => updateSelectedData("itemLayout", "LIST")}
-                        className={cn(
-                          "rounded py-1 text-xs font-bold",
-                          selectedSection.itemLayout === "LIST" ? "bg-white shadow" : "text-neutral-500",
-                        )}
-                      >
-                        List
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => updateSelectedData("itemLayout", "GRID")}
-                        className={cn(
-                          "rounded py-1 text-xs font-bold",
-                          selectedSection.itemLayout === "GRID" ? "bg-white shadow" : "text-neutral-500",
-                        )}
-                      >
-                        Grid
-                      </button>
-                    </div>
-                  </div>
-                  {selectedSection.itemLayout === "GRID" && (
-                    <div>
-                      <label className="mb-2 block text-xs text-neutral-500">Items per row</label>
-                      <SliderWithInput
-                        key={`${selectedSection.id}-cols`}
-                        value={selectedSection.gridColumns}
-                        min={2}
-                        max={10}
-                        onChange={(v) => updateSelectedData("gridColumns", v)}
-                        sliderClassName="w-full"
-                      />
-                    </div>
-                  )}
-                </div>
-              )}
-
-              {selectedType === "item" && selectedItem && (
-                <>
-                  <div>
-                    <label className="mb-2 block text-xs font-bold text-neutral-500">Type</label>
-                    <div className="grid grid-cols-2 gap-1 rounded-lg border border-neutral-200 bg-neutral-50 p-1 dark:border-neutral-700 dark:bg-neutral-800">
-                      <button
-                        type="button"
-                        onClick={() => updateSelectedData("kind", "CHECKBOX")}
-                        className={cn(
-                          "rounded py-1 text-xs font-bold",
-                          selectedItem.kind !== "COUNTER" ? "bg-white shadow" : "text-neutral-500",
-                        )}
-                      >
-                        Checkbox
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => updateSelectedData("kind", "COUNTER")}
-                        className={cn(
-                          "rounded py-1 text-xs font-bold",
-                          selectedItem.kind === "COUNTER" ? "bg-white shadow" : "text-neutral-500",
-                        )}
-                      >
-                        Counter
-                      </button>
-                    </div>
-                    {selectedItem.kind === "COUNTER" && (
-                      <label className="mt-2 flex items-center justify-between text-xs text-neutral-500">
-                        Target count
-                        <input
-                          key={`${selectedItem.id}-target`}
-                          type="number"
-                          min={1}
-                          defaultValue={selectedItem.targetCount ?? 100}
-                          onBlur={(e) =>
-                            updateSelectedData("targetCount", Math.max(1, parseInt(e.target.value, 10) || 1))
-                          }
-                          className="w-20 rounded border border-neutral-300 px-1.5 py-1 text-sm text-neutral-900"
-                        />
-                      </label>
-                    )}
-                  </div>
-
-                  <div>
-                    <label className="mb-1 block text-xs text-neutral-500">Description</label>
-                    <textarea
-                      key={`${selectedItem.id}-desc`}
-                      defaultValue={selectedItem.description ?? ""}
-                      onBlur={(e) => updateSelectedData("description", e.target.value || null)}
-                      rows={2}
-                      className="w-full resize-none rounded-md border border-neutral-300 px-3 py-2 text-sm outline-none focus:border-neutral-900"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="mb-1 block text-xs text-neutral-500">
-                      Reference link (guide, wiki, etc.)
-                    </label>
-                    <input
-                      key={`${selectedItem.id}-url`}
-                      type="url"
-                      defaultValue={selectedItem.url ?? ""}
-                      onBlur={(e) => updateSelectedData("url", e.target.value || null)}
-                      placeholder="https://..."
-                      className="w-full rounded-md border border-neutral-300 px-3 py-2 text-sm outline-none focus:border-neutral-900"
-                    />
-                  </div>
-
-                  <div className="flex flex-col gap-3 rounded-lg border border-neutral-200 p-3 dark:border-neutral-700">
-                    <ImagePicker
-                      label="Item image"
-                      value={selectedItem.imageUrl ?? ""}
-                      onChange={(url) => updateSelectedData("imageUrl", url)}
-                      kind="items"
-                    />
-
-                    <div className="flex items-center gap-2 border-t border-neutral-100 pt-3 dark:border-neutral-800">
-                      <input
-                        type="checkbox"
-                        id="pixelated"
-                        checked={selectedItem.pixelatedImage}
-                        onChange={(e) => updateSelectedData("pixelatedImage", e.target.checked)}
-                        className="h-4 w-4"
-                      />
-                      <label htmlFor="pixelated" className="cursor-pointer select-none text-xs text-neutral-600">
-                        <span className="block font-bold">Pixel art mode</span>
-                        <span className="text-[10px] text-neutral-400">Keeps small sprites sharp</span>
-                      </label>
-                    </div>
-
-                    <div className="flex flex-col gap-2 border-t border-neutral-100 pt-3 dark:border-neutral-800">
-                      <label className="text-xs font-bold text-neutral-500">Image framing</label>
-                      <div className="grid grid-cols-2 gap-1 rounded-lg border border-neutral-200 bg-neutral-50 p-1 dark:border-neutral-700 dark:bg-neutral-800">
-                        <button
-                          type="button"
-                          onClick={() => updateSelectedData("imageFit", "CONTAIN")}
-                          className={cn(
-                            "rounded py-1 text-xs font-bold",
-                            selectedItem.imageFit !== "COVER" ? "bg-white shadow" : "text-neutral-500",
-                          )}
-                        >
-                          Contain
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => updateSelectedData("imageFit", "COVER")}
-                          className={cn(
-                            "rounded py-1 text-xs font-bold",
-                            selectedItem.imageFit === "COVER" ? "bg-white shadow" : "text-neutral-500",
-                          )}
-                        >
-                          Cover
-                        </button>
-                      </div>
-                      <div className="flex items-center justify-between">
-                        <label className="text-xs text-neutral-500">Zoom</label>
-                        <SliderWithInput
-                          key={`${selectedItem.id}-scale`}
-                          value={selectedItem.imageScale}
-                          min={1}
-                          max={3}
-                          step={0.1}
-                          onChange={(v) => updateSelectedData("imageScale", v)}
-                        />
-                      </div>
-                      <div className="flex items-center justify-between">
-                        <label className="text-xs text-neutral-500">Pan X</label>
-                        <SliderWithInput
-                          key={`${selectedItem.id}-panx`}
-                          value={selectedItem.imagePositionX}
-                          min={0}
-                          max={100}
-                          onChange={(v) => updateSelectedData("imagePositionX", v)}
-                        />
-                      </div>
-                      <div className="flex items-center justify-between">
-                        <label className="text-xs text-neutral-500">Pan Y</label>
-                        <SliderWithInput
-                          key={`${selectedItem.id}-pany`}
-                          value={selectedItem.imagePositionY}
-                          min={0}
-                          max={100}
-                          onChange={(v) => updateSelectedData("imagePositionY", v)}
-                        />
-                      </div>
-                    </div>
-                  </div>
-                </>
-              )}
-            </div>
-          ) : (
-            <div className="mt-4 rounded-xl border border-dashed border-neutral-300 p-6 text-center">
-              <p className="text-xs leading-relaxed text-neutral-500">
-                Click any Module, Target, or Tab to edit it.
-              </p>
-            </div>
+        <aside
+          className={cn(
+            "w-full rounded-xl border border-neutral-200 p-5 lg:w-80 lg:shrink-0 dark:border-neutral-700",
+            (selectedType === "module" || selectedType === "item") && "hidden lg:block",
           )}
+        >
+          {renderPropertiesPanel()}
         </aside>
       </div>
     </div>

@@ -82,27 +82,3 @@ export async function checklistCompletionRates() {
   });
 }
 
-export async function tabCompletionRates() {
-  const checklists = await db.checklist.findMany({
-    select: {
-      name: true,
-      game: { select: { title: true } },
-      tabs: {
-        orderBy: { order: "asc" },
-        select: {
-          title: true,
-          sections: {
-            select: { items: { select: { kind: true, isComplete: true, targetCount: true, currentCount: true } } },
-          },
-        },
-      },
-    },
-  });
-  return checklists.flatMap((c) =>
-    c.tabs.map((tab) => {
-      const items = tab.sections.flatMap((s) => s.items);
-      const { percent } = computeChecklistProgress(items);
-      return { game: c.game.title, checklist: c.name, tab: tab.title, percent };
-    }),
-  );
-}

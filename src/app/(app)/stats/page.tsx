@@ -4,23 +4,20 @@ import {
   tokenHistory,
   allUserBadges,
   checklistCompletionRates,
-  tabCompletionRates,
 } from "@/server/queries/stats";
 import { PlaytimeChart } from "@/components/stats/playtime-chart";
 import { VelocityChart } from "@/components/stats/velocity-chart";
 import { TokenHistoryTable } from "@/components/stats/token-history-table";
-import { TabCompletionTable } from "@/components/stats/tab-completion-table";
 import { BadgeShelf } from "@/components/badges/badge-shelf";
 import { ProgressBar } from "@/components/checklists/progress-bar";
 
 export default async function StatsPage() {
-  const [playtime, velocity, transactions, badges, completionRates, tabRates] = await Promise.all([
+  const [playtime, velocity, transactions, badges, completionRates] = await Promise.all([
     playtimePerGame(),
     completionVelocityByDay(),
     tokenHistory(),
     allUserBadges(),
     checklistCompletionRates(),
-    tabCompletionRates(),
   ]);
 
   return (
@@ -54,11 +51,6 @@ export default async function StatsPage() {
             ))}
           </ul>
         )}
-      </section>
-
-      <section className="flex flex-col gap-3">
-        <h2 className="font-medium text-fuchsia-700 dark:text-fuchsia-400">Completion by tab</h2>
-        <TabCompletionTable rates={tabRates} />
       </section>
 
       <section className="flex flex-col gap-3">
