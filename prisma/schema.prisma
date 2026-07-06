@@ -174,10 +174,13 @@ model ChecklistSection {
   gridColumns Int        @default(4)
   span        Int        @default(4)
 
-  bgColor     String?
-  textColor   String?
-  borderColor String?
-  textSize    Int?
+  bgColor      String?
+  textColor    String?
+  borderColor  String?
+  textSize     Int?
+  // Background of the title/header strip only -- distinct from `bgColor`,
+  // which is the body behind the items grid.
+  titleBgColor String?
 
   items ChecklistItem[]
 

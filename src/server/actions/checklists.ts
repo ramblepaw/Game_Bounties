@@ -261,6 +261,7 @@ export type ModuleStyleInput = {
   textColor?: string | null;
   borderColor?: string | null;
   textSize?: number | null;
+  titleBgColor?: string | null;
 };
 
 export async function createSection(tabId: string): Promise<{ id: string }> {

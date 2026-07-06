@@ -72,6 +72,7 @@ interface DesignerSection {
   textColor: string | null;
   borderColor: string | null;
   textSize: number | null;
+  titleBgColor: string | null;
   items: DesignerItem[];
 }
 
@@ -496,6 +497,18 @@ export function ChecklistDesigner({
                 />
               </div>
             )}
+            <div>
+              <label className="mb-1 block text-xs text-neutral-500">Title background</label>
+              <GradientColorPicker
+                key={`${selectedSection.id}-titlebg`}
+                value={selectedSection.titleBgColor ?? null}
+                fallback="#1e1830"
+                onChange={(value) => updateSelectedData("titleBgColor", value)}
+                presets={colorPresets}
+                onSavePreset={savePreset}
+                onDeletePreset={deletePreset}
+              />
+            </div>
           </div>
         )}
 
@@ -806,7 +819,10 @@ export function ChecklistDesigner({
                     getColSpanClass(section.span),
                   )}
                 >
-                  <div className="flex items-center gap-2 border-b border-[#4c1d95]/40 bg-[#1e1830] p-3">
+                  <div
+                    style={resolveBackgroundStyle(section.titleBgColor, "#1e1830")}
+                    className="flex items-center gap-2 border-b border-[#4c1d95]/40 p-3"
+                  >
                     <span className="cursor-grab text-neutral-400">⋮⋮</span>
                     <h2
                       className="truncate font-black"

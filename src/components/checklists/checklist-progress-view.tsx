@@ -39,6 +39,7 @@ interface ProgressSection {
   textColor: string | null;
   borderColor: string | null;
   textSize: number | null;
+  titleBgColor: string | null;
   items: ProgressItem[];
 }
 
@@ -145,7 +146,8 @@ function ModuleCard({
     >
       <div
         onClick={() => setCollapsed((c) => !c)}
-        className="flex cursor-pointer items-center justify-between gap-2 border-b border-[#4c1d95]/40 bg-[#1e1830] p-3"
+        style={resolveBackgroundStyle(section.titleBgColor, "#1e1830")}
+        className="flex cursor-pointer items-center justify-between gap-2 border-b border-[#4c1d95]/40 p-3"
       >
         <h2
           className="min-w-0 truncate font-black"
