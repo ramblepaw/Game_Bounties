@@ -5,6 +5,7 @@ import { revalidatePath } from "next/cache";
 import { getSession } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { DEFAULT_ACTIVE_CHECKLIST_LIMIT } from "@/lib/limits";
+import { isTokenless } from "@/lib/token-economy";
 import { getCooldownFor } from "@/lib/cooldown";
 import { resetChecklistProgress } from "@/server/actions/checklist-progress-reset";
 
@@ -32,16 +33,30 @@ export async function activateChecklist(checklistId: string): Promise<ActivateRe
     };
   }
 
-  const [user, activeCount] = await Promise.all([
-    db.user.findUniqueOrThrow({ where: { id: session.userId }, select: { activeChecklistLimit: true } }),
-    db.activeChecklist.count({ where: { userId: session.userId } }),
-  ]);
-  const limit = user.activeChecklistLimit ?? DEFAULT_ACTIVE_CHECKLIST_LIMIT;
+  const checklist = await db.checklist.findUniqueOrThrow({
+    where: { id: checklistId },
+    select: { tokenReward: true },
+  });
 
-  if (activeCount >= limit) {
-    return {
-      error: `You're already running ${activeCount} checklist${activeCount === 1 ? "" : "s"} (limit ${limit}). Stop one first.`,
-    };
+  // A checklist worth 0 tokens is free to run alongside (or beyond) the WIP
+  // limit -- it's not part of the "how much am I juggling for tokens" budget
+  // the limit is meant to police.
+  if (!isTokenless(checklist.tokenReward)) {
+    const [user, activeChecklists] = await Promise.all([
+      db.user.findUniqueOrThrow({ where: { id: session.userId }, select: { activeChecklistLimit: true } }),
+      db.activeChecklist.findMany({
+        where: { userId: session.userId },
+        select: { checklist: { select: { tokenReward: true } } },
+      }),
+    ]);
+    const limit = user.activeChecklistLimit ?? DEFAULT_ACTIVE_CHECKLIST_LIMIT;
+    const activeCount = activeChecklists.filter((a) => !isTokenless(a.checklist.tokenReward)).length;
+
+    if (activeCount >= limit) {
+      return {
+        error: `You're already running ${activeCount} checklist${activeCount === 1 ? "" : "s"} (limit ${limit}). Stop one first.`,
+      };
+    }
   }
 
   await db.activeChecklist.create({ data: { userId: session.userId, checklistId } });

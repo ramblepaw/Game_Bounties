@@ -5,6 +5,7 @@ import { getProfileData, listApprovedCompletionsFor } from "@/server/queries/pro
 import { listActiveChecklistsFor } from "@/server/queries/active-checklists";
 import { formatMinutes } from "@/lib/format";
 import { DEFAULT_ACTIVE_CHECKLIST_LIMIT } from "@/lib/limits";
+import { isTokenless } from "@/lib/token-economy";
 import { BadgeShelf } from "@/components/badges/badge-shelf";
 import { StopRunningButton } from "@/components/checklists/stop-running-button";
 import { EditableActiveLimit } from "./editable-active-limit";
@@ -21,6 +22,7 @@ export default async function ProfilePage() {
   ]);
 
   const limit = user.activeChecklistLimit ?? DEFAULT_ACTIVE_CHECKLIST_LIMIT;
+  const countedActive = activeChecklists.filter((a) => !isTokenless(a.checklist.tokenReward)).length;
 
   return (
     <div className="flex flex-col gap-8">
@@ -52,7 +54,7 @@ export default async function ProfilePage() {
       <section className="flex flex-col gap-3">
         <div className="flex items-center justify-between">
           <h2 className="font-medium text-fuchsia-700 dark:text-fuchsia-400">
-            Currently running ({activeChecklists.length} / {limit})
+            Currently running ({countedActive} / {limit})
           </h2>
         </div>
         <EditableActiveLimit limit={user.activeChecklistLimit} />
@@ -70,6 +72,9 @@ export default async function ProfilePage() {
                   className="text-sm font-medium text-emerald-800 hover:underline dark:text-emerald-300"
                 >
                   {a.checklist.game.title} — {a.checklist.name}
+                  {isTokenless(a.checklist.tokenReward) && (
+                    <span className="ml-2 text-xs font-normal text-neutral-500">(free — doesn&apos;t count against limit)</span>
+                  )}
                 </Link>
                 <StopRunningButton checklistId={a.checklistId} />
               </li>
