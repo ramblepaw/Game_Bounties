@@ -744,15 +744,13 @@ export function ChecklistDesigner({
         >
           + Add Module
         </button>
-        <div className="lg:hidden">
-          <ChecklistSettingsMenu
-            currentGameId={gameId}
-            games={games}
-            onDuplicate={handleDuplicateChecklist}
-            onMove={handleMoveChecklist}
-            onDelete={handleDeleteChecklist}
-          />
-        </div>
+        <ChecklistSettingsMenu
+          currentGameId={gameId}
+          games={games}
+          onDuplicate={handleDuplicateChecklist}
+          onMove={handleMoveChecklist}
+          onDelete={handleDeleteChecklist}
+        />
       </div>
 
       <div className="flex flex-wrap items-end gap-3 rounded-lg border border-dashed border-neutral-300 p-3 dark:border-neutral-700">
@@ -1034,7 +1032,7 @@ export function ChecklistDesigner({
             (selectedType === "module" || selectedType === "item") && "hidden lg:block",
           )}
         >
-          <div className="mb-4 hidden items-center gap-2 lg:flex">
+          <div className="mb-4 hidden lg:block">
             <button
               type="button"
               onClick={addModule}
@@ -1042,13 +1040,6 @@ export function ChecklistDesigner({
             >
               + Add Module
             </button>
-            <ChecklistSettingsMenu
-              currentGameId={gameId}
-              games={games}
-              onDuplicate={handleDuplicateChecklist}
-              onMove={handleMoveChecklist}
-              onDelete={handleDeleteChecklist}
-            />
           </div>
           {renderPropertiesPanel()}
         </aside>
