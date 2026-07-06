@@ -151,6 +151,16 @@ export function ChecklistDesigner({
   const [selectedType, setSelectedType] = useState<SelectedType>(null);
   const [draggedSectionId, setDraggedSectionId] = useState<string | null>(null);
   const [draggedItemId, setDraggedItemId] = useState<string | null>(null);
+  const [collapsedSectionIds, setCollapsedSectionIds] = useState<Set<string>>(new Set());
+
+  function toggleCollapsed(sectionId: string) {
+    setCollapsedSectionIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(sectionId)) next.delete(sectionId);
+      else next.add(sectionId);
+      return next;
+    });
+  }
   const [name, setName] = useState(checklist.name);
   const [tokenReward, setTokenReward] = useState(checklist.tokenReward?.toString() ?? "");
   const [badgeName, setBadgeName] = useState(checklist.badgeName ?? "");
@@ -798,6 +808,7 @@ export function ChecklistDesigner({
               const isModuleSelected = selectedId === section.id && selectedType === "module";
               const isPanelForThisModule =
                 isModuleSelected || (selectedType === "item" && section.items.some((i) => i.id === selectedId));
+              const isCollapsed = collapsedSectionIds.has(section.id);
               return (
                 <Fragment key={section.id}>
                 <div
@@ -825,7 +836,7 @@ export function ChecklistDesigner({
                   >
                     <span className="cursor-grab text-neutral-400">⋮⋮</span>
                     <h2
-                      className="truncate font-black"
+                      className="min-w-0 flex-1 truncate font-black"
                       style={{
                         color: section.textColor ?? "#ede9fe",
                         fontSize: section.textSize ? `${section.textSize}px` : "1.125rem",
@@ -833,8 +844,21 @@ export function ChecklistDesigner({
                     >
                       {section.name}
                     </h2>
+                    <span className="shrink-0 text-xs text-neutral-400">{section.items.length}</span>
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        toggleCollapsed(section.id);
+                      }}
+                      title={isCollapsed ? "Expand module" : "Collapse module"}
+                      className="shrink-0 text-neutral-400 hover:text-white"
+                    >
+                      {isCollapsed ? "▸" : "▾"}
+                    </button>
                   </div>
 
+                  {!isCollapsed && (
                   <div className="flex-1 p-3">
                     <div
                       onDragOver={handleItemDragOver}
@@ -965,6 +989,7 @@ export function ChecklistDesigner({
                       </button>
                     </div>
                   </div>
+                  )}
                 </div>
                 {isPanelForThisModule && (
                   <div className="col-span-4 rounded-xl border border-neutral-200 p-5 lg:hidden dark:border-neutral-700">
@@ -979,7 +1004,7 @@ export function ChecklistDesigner({
 
         <aside
           className={cn(
-            "w-full rounded-xl border border-neutral-200 p-5 lg:w-80 lg:shrink-0 dark:border-neutral-700",
+            "w-full self-start overflow-y-auto rounded-xl border border-neutral-200 p-5 lg:sticky lg:top-4 lg:max-h-[calc(100vh-2rem)] lg:w-80 lg:shrink-0 dark:border-neutral-700",
             (selectedType === "module" || selectedType === "item") && "hidden lg:block",
           )}
         >
