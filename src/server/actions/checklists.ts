@@ -250,6 +250,15 @@ export async function deleteTab(checklistId: string, tabId: string): Promise<voi
   revalidatePath("/", "layout");
 }
 
+/** Bulk reorder after a drag-and-drop move of a checklist's tabs. */
+export async function reorderTabs(checklistId: string, orderedTabIds: string[]): Promise<void> {
+  await requireSession();
+  await db.$transaction(
+    orderedTabIds.map((id, index) => db.checklistTab.update({ where: { id }, data: { order: index } })),
+  );
+  revalidatePath("/", "layout");
+}
+
 // ---- Modules (sections) ----
 
 export type ModuleStyleInput = {

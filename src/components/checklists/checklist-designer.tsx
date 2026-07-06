@@ -7,6 +7,7 @@ import {
   createTab,
   updateTab,
   deleteTab,
+  reorderTabs,
   createSection,
   updateSection,
   deleteSection,
@@ -149,6 +150,7 @@ export function ChecklistDesigner({
   const [activeTabId, setActiveTabId] = useState(checklist.tabs[0]?.id ?? "");
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [selectedType, setSelectedType] = useState<SelectedType>(null);
+  const [draggedTabId, setDraggedTabId] = useState<string | null>(null);
   const [draggedSectionId, setDraggedSectionId] = useState<string | null>(null);
   const [draggedItemId, setDraggedItemId] = useState<string | null>(null);
   const [collapsedSectionIds, setCollapsedSectionIds] = useState<Set<string>>(new Set());
@@ -291,6 +293,24 @@ export function ChecklistDesigner({
 
     reorderSections(activeTab.id, ids).then(refresh);
     setDraggedSectionId(null);
+  }
+
+  function handleTabDragStart(e: React.DragEvent, id: string) {
+    setDraggedTabId(id);
+    e.dataTransfer.effectAllowed = "move";
+  }
+
+  function handleTabDrop(e: React.DragEvent, targetId: string) {
+    e.preventDefault();
+    if (!draggedTabId || draggedTabId === targetId) return;
+
+    const ids = checklist.tabs.map((t) => t.id);
+    const draggedIdx = ids.indexOf(draggedTabId);
+    const targetIdx = ids.indexOf(targetId);
+    [ids[draggedIdx], ids[targetIdx]] = [ids[targetIdx], ids[draggedIdx]];
+
+    reorderTabs(checklist.id, ids).then(refresh);
+    setDraggedTabId(null);
   }
 
   function handleItemDragStart(e: React.DragEvent, id: string) {
@@ -720,17 +740,19 @@ export function ChecklistDesigner({
         <button
           type="button"
           onClick={addModule}
-          className="ml-auto rounded-lg bg-neutral-900 px-4 py-2 text-sm font-bold text-white shadow hover:bg-neutral-700"
+          className="ml-auto rounded-lg bg-neutral-900 px-4 py-2 text-sm font-bold text-white shadow hover:bg-neutral-700 lg:hidden"
         >
           + Add Module
         </button>
-        <ChecklistSettingsMenu
-          currentGameId={gameId}
-          games={games}
-          onDuplicate={handleDuplicateChecklist}
-          onMove={handleMoveChecklist}
-          onDelete={handleDeleteChecklist}
-        />
+        <div className="lg:hidden">
+          <ChecklistSettingsMenu
+            currentGameId={gameId}
+            games={games}
+            onDuplicate={handleDuplicateChecklist}
+            onMove={handleMoveChecklist}
+            onDelete={handleDeleteChecklist}
+          />
+        </div>
       </div>
 
       <div className="flex flex-wrap items-end gap-3 rounded-lg border border-dashed border-neutral-300 p-3 dark:border-neutral-700">
@@ -767,6 +789,10 @@ export function ChecklistDesigner({
             <button
               key={tab.id}
               type="button"
+              draggable
+              onDragStart={(e) => handleTabDragStart(e, tab.id)}
+              onDragOver={handleDragOver}
+              onDrop={(e) => handleTabDrop(e, tab.id)}
               onClick={() => {
                 setActiveTabId(tab.id);
                 setSelectedId(tab.id);
@@ -1008,6 +1034,22 @@ export function ChecklistDesigner({
             (selectedType === "module" || selectedType === "item") && "hidden lg:block",
           )}
         >
+          <div className="mb-4 hidden items-center gap-2 lg:flex">
+            <button
+              type="button"
+              onClick={addModule}
+              className="rounded-lg bg-neutral-900 px-4 py-2 text-sm font-bold text-white shadow hover:bg-neutral-700"
+            >
+              + Add Module
+            </button>
+            <ChecklistSettingsMenu
+              currentGameId={gameId}
+              games={games}
+              onDuplicate={handleDuplicateChecklist}
+              onMove={handleMoveChecklist}
+              onDelete={handleDeleteChecklist}
+            />
+          </div>
           {renderPropertiesPanel()}
         </aside>
       </div>
