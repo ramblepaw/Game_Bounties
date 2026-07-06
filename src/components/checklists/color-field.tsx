@@ -22,11 +22,21 @@ export function ColorField({
   className?: string;
 }) {
   const [current, setCurrent] = useState(defaultValue);
+  const [hexInput, setHexInput] = useState(defaultValue);
   const [selectedPresetId, setSelectedPresetId] = useState("");
 
   function commit(next: string) {
     setCurrent(next);
+    setHexInput(next);
     onChange(next);
+  }
+
+  function commitHexInput() {
+    if (/^#[0-9a-fA-F]{6}$/.test(hexInput)) {
+      commit(hexInput);
+    } else {
+      setHexInput(current);
+    }
   }
 
   function applyPreset(id: string) {
@@ -43,6 +53,21 @@ export function ColorField({
           value={current}
           onChange={(e) => commit(e.target.value)}
           className="h-7 w-10 rounded border border-neutral-300"
+        />
+        <input
+          type="text"
+          value={hexInput}
+          onChange={(e) => setHexInput(e.target.value)}
+          onBlur={commitHexInput}
+          onKeyDown={(e) => {
+            if (e.key === "Enter") {
+              e.preventDefault();
+              commitHexInput();
+            }
+          }}
+          placeholder="#rrggbb"
+          spellCheck={false}
+          className="w-20 rounded border border-neutral-300 px-1.5 py-1 text-xs font-mono outline-none focus:border-neutral-900 dark:border-neutral-700 dark:bg-neutral-800"
         />
         <button
           type="button"
