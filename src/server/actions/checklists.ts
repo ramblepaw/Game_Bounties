@@ -184,6 +184,157 @@ export async function duplicateChecklist(gameId: string, checklistId: string): P
   redirect(`/games/${gameId}/checklists/${duplicate.id}/edit`);
 }
 
+const importItemSchema = z.object({
+  title: z.string().min(1),
+  description: z.string().nullable().optional(),
+  imageUrl: z.string().nullable().optional(),
+  url: z.string().nullable().optional(),
+  order: z.number().optional(),
+  bgColor: z.string().nullable().optional(),
+  textColor: z.string().nullable().optional(),
+  borderColor: z.string().nullable().optional(),
+  textSize: z.number().nullable().optional(),
+  fontFamily: z.string().nullable().optional(),
+  pixelatedImage: z.boolean().optional(),
+  imageFit: z.enum(["CONTAIN", "COVER"]).optional(),
+  imageScale: z.number().optional(),
+  imagePositionX: z.number().optional(),
+  imagePositionY: z.number().optional(),
+  kind: z.enum(["CHECKBOX", "COUNTER"]).optional(),
+  targetCount: z.number().nullable().optional(),
+});
+
+const importSectionSchema = z.object({
+  name: z.string().min(1),
+  order: z.number().optional(),
+  itemLayout: z.enum(["LIST", "GRID"]).optional(),
+  gridColumns: z.number().optional(),
+  span: z.number().optional(),
+  bgColor: z.string().nullable().optional(),
+  textColor: z.string().nullable().optional(),
+  borderColor: z.string().nullable().optional(),
+  textSize: z.number().nullable().optional(),
+  titleBgColor: z.string().nullable().optional(),
+  items: z.array(importItemSchema).default([]),
+});
+
+const importTabSchema = z.object({
+  title: z.string().min(1),
+  order: z.number().optional(),
+  canvasBgColor: z.string().nullable().optional(),
+  canvasBgImageUrl: z.string().nullable().optional(),
+  bgColor: z.string().nullable().optional(),
+  textColor: z.string().nullable().optional(),
+  borderColor: z.string().nullable().optional(),
+  textSize: z.number().nullable().optional(),
+  sections: z.array(importSectionSchema).default([]),
+});
+
+const importChecklistSchema = z.object({
+  name: z.string().min(1),
+  description: z.string().nullable().optional(),
+  notes: z.string().nullable().optional(),
+  tokenReward: z.number().nullable().optional(),
+  badgeName: z.string().nullable().optional(),
+  badgeIconUrl: z.string().nullable().optional(),
+  colorPresets: z.array(z.object({ name: z.string().min(1), color: z.string().min(1) })).default([]),
+  tabs: z.array(importTabSchema).min(1, "Must have at least one tab."),
+});
+
+export type ImportChecklistFormState = { error: string | null };
+
+export async function importChecklist(
+  gameId: string,
+  _prevState: ImportChecklistFormState,
+  formData: FormData,
+): Promise<ImportChecklistFormState> {
+  await requireSession();
+
+  const file = formData.get("file");
+  if (!(file instanceof File) || file.size === 0) {
+    return { error: "Choose a JSON file to import." };
+  }
+
+  let raw: unknown;
+  try {
+    raw = JSON.parse(await file.text());
+  } catch {
+    return { error: "That file isn't valid JSON." };
+  }
+
+  const parsed = importChecklistSchema.safeParse(raw);
+  if (!parsed.success) {
+    return { error: `Invalid checklist file: ${parsed.error.issues[0]?.message ?? "unknown error"}` };
+  }
+  const data = parsed.data;
+
+  const count = await db.checklist.count({ where: { gameId } });
+
+  const checklist = await db.checklist.create({
+    data: {
+      gameId,
+      name: data.name,
+      description: data.description ?? null,
+      notes: data.notes ?? null,
+      order: count,
+      tokenReward: data.tokenReward ?? null,
+      badgeName: data.badgeName ?? null,
+      badgeIconUrl: data.badgeIconUrl ?? null,
+      colorPresets: { create: data.colorPresets },
+      tabs: {
+        create: data.tabs.map((tab, tabIndex) => ({
+          title: tab.title,
+          order: tab.order ?? tabIndex,
+          canvasBgColor: tab.canvasBgColor ?? null,
+          canvasBgImageUrl: tab.canvasBgImageUrl ?? null,
+          bgColor: tab.bgColor ?? null,
+          textColor: tab.textColor ?? null,
+          borderColor: tab.borderColor ?? null,
+          textSize: tab.textSize ?? null,
+          sections: {
+            create: tab.sections.map((section, sectionIndex) => ({
+              name: section.name,
+              order: section.order ?? sectionIndex,
+              itemLayout: section.itemLayout ?? "GRID",
+              gridColumns: section.gridColumns ?? 4,
+              span: section.span ?? 4,
+              bgColor: section.bgColor ?? null,
+              textColor: section.textColor ?? null,
+              borderColor: section.borderColor ?? null,
+              textSize: section.textSize ?? null,
+              titleBgColor: section.titleBgColor ?? null,
+              items: {
+                create: section.items.map((item, itemIndex) => ({
+                  title: item.title,
+                  description: item.description ?? null,
+                  imageUrl: item.imageUrl ?? null,
+                  url: item.url ?? null,
+                  order: item.order ?? itemIndex,
+                  bgColor: item.bgColor ?? null,
+                  textColor: item.textColor ?? null,
+                  borderColor: item.borderColor ?? null,
+                  textSize: item.textSize ?? null,
+                  fontFamily: item.fontFamily ?? null,
+                  pixelatedImage: item.pixelatedImage ?? true,
+                  imageFit: item.imageFit ?? "CONTAIN",
+                  imageScale: item.imageScale ?? 1,
+                  imagePositionX: item.imagePositionX ?? 50,
+                  imagePositionY: item.imagePositionY ?? 50,
+                  kind: item.kind ?? "CHECKBOX",
+                  targetCount: item.targetCount ?? null,
+                })),
+              },
+            })),
+          },
+        })),
+      },
+    },
+  });
+
+  revalidatePath(`/games/${gameId}`);
+  redirect(`/games/${gameId}/checklists/${checklist.id}/edit`);
+}
+
 export async function moveChecklist(checklistId: string, newGameId: string): Promise<void> {
   await requireSession();
   const count = await db.checklist.count({ where: { gameId: newGameId } });

@@ -745,6 +745,7 @@ export function ChecklistDesigner({
           + Add Module
         </button>
         <ChecklistSettingsMenu
+          checklistId={checklist.id}
           currentGameId={gameId}
           games={games}
           onDuplicate={handleDuplicateChecklist}

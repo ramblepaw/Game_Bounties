@@ -6,12 +6,14 @@ import { cn } from "@/lib/cn";
 type GameOption = { id: string; title: string };
 
 export function ChecklistSettingsMenu({
+  checklistId,
   currentGameId,
   games,
   onDuplicate,
   onMove,
   onDelete,
 }: {
+  checklistId: string;
   currentGameId: string;
   games: GameOption[];
   onDuplicate: () => void;
@@ -79,6 +81,15 @@ export function ChecklistSettingsMenu({
               >
                 Move to another game…
               </button>
+              <a
+                role="menuitem"
+                href={`/api/checklists/${checklistId}/export`}
+                download
+                onClick={close}
+                className="block w-full px-3 py-2 text-left text-sm hover:bg-neutral-100 dark:hover:bg-neutral-800"
+              >
+                Export as JSON
+              </a>
               <button
                 type="button"
                 role="menuitem"

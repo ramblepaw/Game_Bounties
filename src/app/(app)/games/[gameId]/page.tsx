@@ -11,6 +11,7 @@ import { ProgressBar } from "@/components/checklists/progress-bar";
 import { GameCover } from "@/components/games/game-cover";
 import { RunChecklistButton } from "@/components/checklists/run-checklist-button";
 import { WaiveCooldownButton } from "@/components/checklists/waive-cooldown-button";
+import { ImportChecklistForm } from "@/components/checklists/import-checklist-form";
 import { Button } from "@/components/ui/button";
 import { deleteGame } from "@/server/actions/games";
 
@@ -86,9 +87,12 @@ export default async function GameDetailPage({
 
       <div className="flex items-center justify-between">
         <h2 className="font-medium text-violet-950 dark:text-violet-100">Checklists</h2>
-        <Link href={`/games/${gameId}/checklists/new`}>
-          <Button size="sm">Add checklist</Button>
-        </Link>
+        <div className="flex items-center gap-2">
+          <ImportChecklistForm gameId={gameId} />
+          <Link href={`/games/${gameId}/checklists/new`}>
+            <Button size="sm">Add checklist</Button>
+          </Link>
+        </div>
       </div>
 
       {game.checklists.length === 0 ? (
