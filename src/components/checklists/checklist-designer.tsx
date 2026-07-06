@@ -860,16 +860,23 @@ export function ChecklistDesigner({
                               setSelectedType("item");
                             }}
                             style={{
-                              ...resolveBackgroundStyle(item.bgColor, "rgba(139,92,246,0.08)"),
                               borderColor: item.borderColor ?? (isItemSelected ? "#7c3aed" : "transparent"),
                               color: item.textColor ?? "#ede9fe",
                               boxShadow: isItemSelected ? "0 0 0 2px #7c3aed" : "none",
                             }}
                             className={cn(
-                              "cursor-pointer overflow-hidden rounded-xl border transition-transform hover:scale-[1.02]",
-                              section.itemLayout === "GRID" ? "relative flex aspect-square flex-col" : "flex items-center gap-3 p-2",
+                              "relative isolate cursor-pointer overflow-hidden rounded-xl border transition-transform hover:scale-[1.02]",
+                              section.itemLayout === "GRID" ? "flex aspect-square flex-col" : "flex items-center gap-3 p-2",
                             )}
                           >
+                            {/* Painted on its own layer, bled 1px past the edges -- a background
+                                sized exactly to the box can leave a hairline gap at the rounded
+                                corners once `hover:scale` promotes this element to its own
+                                compositing layer, especially with a diagonal gradient. */}
+                            <div
+                              className="absolute -inset-px -z-10"
+                              style={resolveBackgroundStyle(item.bgColor, "rgba(139,92,246,0.08)")}
+                            />
                             {item.kind === "COUNTER" && (
                               <span
                                 className={cn(

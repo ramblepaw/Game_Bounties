@@ -197,19 +197,24 @@ function ModuleCard({
                           }
                     }
                     style={{
-                      ...resolveBackgroundStyle(item.bgColor, "rgba(139,92,246,0.08)"),
                       borderColor: item.borderColor ?? "transparent",
                       color: item.textColor ?? "#ede9fe",
                     }}
                     className={cn(
-                      "overflow-hidden rounded-xl border transition-transform focus:outline-none focus:ring-2 focus:ring-neutral-900",
+                      "relative isolate overflow-hidden rounded-xl border transition-transform focus:outline-none focus:ring-2 focus:ring-neutral-900",
                       isCounter ? "" : "cursor-pointer hover:scale-[1.02]",
-                      section.itemLayout === "GRID"
-                        ? "relative flex aspect-square flex-col"
-                        : "flex items-center gap-3 p-2",
+                      section.itemLayout === "GRID" ? "flex aspect-square flex-col" : "flex items-center gap-3 p-2",
                       item.isComplete && "opacity-50 saturate-[0.35]",
                     )}
                   >
+                    {/* Painted on its own layer, bled 1px past the edges -- a background
+                        sized exactly to the box can leave a hairline gap at the rounded
+                        corners once `hover:scale` promotes this element to its own
+                        compositing layer, especially with a diagonal gradient. */}
+                    <div
+                      className="absolute -inset-px -z-10"
+                      style={resolveBackgroundStyle(item.bgColor, "rgba(139,92,246,0.08)")}
+                    />
                     {item.url && (
                       <a
                         href={item.url}
