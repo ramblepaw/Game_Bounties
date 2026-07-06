@@ -30,7 +30,7 @@ import { GradientColorPicker } from "@/components/checklists/gradient-color-pick
 import { ChecklistSettingsMenu } from "@/components/checklists/checklist-settings-menu";
 import { SliderWithInput } from "@/components/checklists/slider-with-input";
 import { ColorField, type ColorPreset } from "@/components/checklists/color-field";
-import { resolveBackgroundStyle } from "@/lib/background-style";
+import { resolveBackgroundStyle, isGradient } from "@/lib/background-style";
 import { FONT_OPTIONS, fontClassForKey } from "@/lib/fonts";
 import { DEFAULT_TOKENS_PER_COMPLETION } from "@/lib/token-economy";
 import { cn } from "@/lib/cn";
@@ -896,6 +896,10 @@ export function ChecklistDesigner({
                     >
                       {section.items.map((item, itemIndex) => {
                         const isItemSelected = selectedId === item.id && selectedType === "item";
+                        // A dark shading behind the title keeps text legible over a photo or
+                        // a plain color, but it also muddies a deliberately-chosen gradient
+                        // background -- so only apply it when there isn't one.
+                        const hasGradientBg = !!item.bgColor && isGradient(item.bgColor);
                         return (
                           <div
                             key={item.id}
@@ -957,7 +961,12 @@ export function ChecklistDesigner({
                                     "No image"
                                   )}
                                 </div>
-                                <div className="relative z-10 mt-auto w-full bg-gradient-to-t from-black/70 to-transparent p-2 pt-8">
+                                <div
+                                  className={cn(
+                                    "relative z-10 mt-auto w-full p-2 pt-8",
+                                    !hasGradientBg && "bg-gradient-to-t from-black/70 to-transparent",
+                                  )}
+                                >
                                   <span
                                     className={cn(
                                       "block truncate text-center font-bold leading-tight",

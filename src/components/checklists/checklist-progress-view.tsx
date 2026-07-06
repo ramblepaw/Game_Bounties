@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { toggleItem, setCounterValue } from "@/server/actions/checklists";
-import { resolveBackgroundStyle } from "@/lib/background-style";
+import { resolveBackgroundStyle, isGradient } from "@/lib/background-style";
 import { fontClassForKey } from "@/lib/fonts";
 import { cn } from "@/lib/cn";
 
@@ -179,6 +179,10 @@ function ModuleCard({
             >
               {section.items.map((item) => {
                 const isCounter = item.kind === "COUNTER";
+                // A dark shading behind the title keeps text legible over a photo or a
+                // plain color, but it also muddies a deliberately-chosen gradient
+                // background -- so only apply it when there isn't one.
+                const hasGradientBg = !!item.bgColor && isGradient(item.bgColor);
                 return (
                   <div
                     key={item.id}
@@ -253,7 +257,12 @@ function ModuleCard({
                             "No image"
                           )}
                         </div>
-                        <div className="relative z-10 mt-auto flex w-full flex-col gap-1 bg-gradient-to-t from-black/70 to-transparent p-2 pt-8">
+                        <div
+                          className={cn(
+                            "relative z-10 mt-auto flex w-full flex-col gap-1 p-2 pt-8",
+                            !hasGradientBg && "bg-gradient-to-t from-black/70 to-transparent",
+                          )}
+                        >
                           <span
                             className={cn(
                               "block truncate text-center font-bold leading-tight",
