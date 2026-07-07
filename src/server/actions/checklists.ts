@@ -214,6 +214,7 @@ const importSectionSchema = z.object({
   textColor: z.string().nullable().optional(),
   borderColor: z.string().nullable().optional(),
   textSize: z.number().nullable().optional(),
+  fontFamily: z.string().nullable().optional(),
   titleBgColor: z.string().nullable().optional(),
   items: z.array(importItemSchema).default([]),
 });
@@ -302,6 +303,7 @@ export async function importChecklist(
               textColor: section.textColor ?? null,
               borderColor: section.borderColor ?? null,
               textSize: section.textSize ?? null,
+              fontFamily: section.fontFamily ?? null,
               titleBgColor: section.titleBgColor ?? null,
               items: {
                 create: section.items.map((item, itemIndex) => ({
@@ -421,6 +423,7 @@ export type ModuleStyleInput = {
   textColor?: string | null;
   borderColor?: string | null;
   textSize?: number | null;
+  fontFamily?: string | null;
   titleBgColor?: string | null;
 };
 

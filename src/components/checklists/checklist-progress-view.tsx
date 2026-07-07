@@ -39,6 +39,7 @@ interface ProgressSection {
   textColor: string | null;
   borderColor: string | null;
   textSize: number | null;
+  fontFamily: string | null;
   titleBgColor: string | null;
   items: ProgressItem[];
 }
@@ -150,7 +151,7 @@ function ModuleCard({
         className="flex cursor-pointer items-center justify-between gap-2 border-b border-[#4c1d95]/40 p-3"
       >
         <h2
-          className="min-w-0 truncate font-black"
+          className={cn("min-w-0 truncate font-black", fontClassForKey(section.fontFamily))}
           style={{
             color: section.textColor ?? "#ede9fe",
             fontSize: section.textSize ? `${section.textSize}px` : "1.125rem",
@@ -158,11 +159,17 @@ function ModuleCard({
         >
           {section.name}
         </h2>
-        <div className="flex shrink-0 items-center gap-2 text-xs text-neutral-400">
-          <span>
+        <div className="flex shrink-0 items-center gap-2">
+          <span
+            className={fontClassForKey(section.fontFamily)}
+            style={{
+              color: section.textColor ?? "#ede9fe",
+              fontSize: section.textSize ? `${section.textSize}px` : "1.125rem",
+            }}
+          >
             {completedCount}/{section.items.length}
           </span>
-          <span>{collapsed ? "▸" : "▾"}</span>
+          <span className="text-xs text-neutral-400">{collapsed ? "▸" : "▾"}</span>
         </div>
       </div>
       {!collapsed && (

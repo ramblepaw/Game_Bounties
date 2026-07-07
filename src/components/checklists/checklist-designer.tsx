@@ -73,6 +73,7 @@ interface DesignerSection {
   textColor: string | null;
   borderColor: string | null;
   textSize: number | null;
+  fontFamily: string | null;
   titleBgColor: string | null;
   items: DesignerItem[];
 }
@@ -462,12 +463,12 @@ export function ChecklistDesigner({
               onChange={(v) => updateSelectedData("textSize", v)}
             />
           </div>
-          {selectedType === "item" && (
+          {(selectedType === "item" || selectedType === "module") && (
             <div className="flex items-center justify-between">
               <label className="text-xs text-neutral-500">Font</label>
               <select
                 key={`${selectedData.id}-font`}
-                defaultValue={selectedItem?.fontFamily ?? ""}
+                defaultValue={(selectedType === "item" ? selectedItem?.fontFamily : selectedSection?.fontFamily) ?? ""}
                 onChange={(e) => updateSelectedData("fontFamily", e.target.value || null)}
                 className="rounded-md border border-neutral-300 px-2 py-1 text-xs"
               >
@@ -875,7 +876,7 @@ export function ChecklistDesigner({
                   >
                     <span className="cursor-grab text-neutral-400">⋮⋮</span>
                     <h2
-                      className="min-w-0 flex-1 truncate font-black"
+                      className={cn("min-w-0 flex-1 truncate font-black", fontClassForKey(section.fontFamily))}
                       style={{
                         color: section.textColor ?? "#ede9fe",
                         fontSize: section.textSize ? `${section.textSize}px` : "1.125rem",
@@ -883,7 +884,15 @@ export function ChecklistDesigner({
                     >
                       {section.name}
                     </h2>
-                    <span className="shrink-0 text-xs text-neutral-400">{section.items.length}</span>
+                    <span
+                      className={cn("shrink-0", fontClassForKey(section.fontFamily))}
+                      style={{
+                        color: section.textColor ?? "#ede9fe",
+                        fontSize: section.textSize ? `${section.textSize}px` : "1.125rem",
+                      }}
+                    >
+                      {section.items.length}
+                    </span>
                     <button
                       type="button"
                       onClick={(e) => {

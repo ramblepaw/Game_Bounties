@@ -87,6 +87,7 @@ export async function getChecklistExportData(checklistId: string) {
         textColor: section.textColor,
         borderColor: section.borderColor,
         textSize: section.textSize,
+        fontFamily: section.fontFamily,
         titleBgColor: section.titleBgColor,
         items: section.items.map((item) => ({
           title: item.title,

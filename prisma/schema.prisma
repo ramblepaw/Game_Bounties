@@ -178,6 +178,7 @@ model ChecklistSection {
   textColor    String?
   borderColor  String?
   textSize     Int?
+  fontFamily   String?
   // Background of the title/header strip only -- distinct from `bgColor`,
   // which is the body behind the items grid.
   titleBgColor String?
