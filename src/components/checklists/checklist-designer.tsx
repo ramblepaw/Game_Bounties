@@ -244,10 +244,22 @@ export function ChecklistDesigner({
 
   function deleteSelected() {
     if (!selectedId) return;
-    if (selectedType === "module") deleteSection(selectedId).then(refresh);
-    else if (selectedType === "item") deleteItem(selectedId).then(refresh);
-    setSelectedId(null);
-    setSelectedType(null);
+    if (selectedType === "module") {
+      deleteSection(selectedId).then(refresh);
+      setSelectedId(null);
+      setSelectedType(null);
+    } else if (selectedType === "item") {
+      // Select the target right before this one, so deleting a run of items
+      // one at a time doesn't strand the editor with nothing selected.
+      const section = allSections.find((s) => s.items.some((i) => i.id === selectedId));
+      const siblings = section?.items ?? [];
+      const index = siblings.findIndex((i) => i.id === selectedId);
+      const precedingId = index > 0 ? siblings[index - 1].id : null;
+
+      deleteItem(selectedId).then(refresh);
+      setSelectedId(precedingId);
+      setSelectedType(precedingId ? "item" : null);
+    }
   }
 
   async function duplicateSelected() {
@@ -393,6 +405,7 @@ export function ChecklistDesigner({
               />
             </div>
             <ImagePicker
+              key={`${selectedTab?.id}-canvas-image`}
               label="Canvas background image"
               value={selectedTab?.canvasBgImageUrl ?? ""}
               onChange={(url) => updateSelectedData("canvasBgImageUrl", url)}
@@ -612,6 +625,7 @@ export function ChecklistDesigner({
 
             <div className="flex flex-col gap-3 rounded-lg border border-neutral-200 p-3 dark:border-neutral-700">
               <ImagePicker
+                key={`${selectedItem.id}-image`}
                 label="Item image"
                 value={selectedItem.imageUrl ?? ""}
                 onChange={(url) => updateSelectedData("imageUrl", url)}

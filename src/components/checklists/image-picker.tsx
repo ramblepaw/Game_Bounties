@@ -16,7 +16,8 @@ export function ImagePicker({
 }) {
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const inputRef = useRef<HTMLInputElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const textInputRef = useRef<HTMLInputElement>(null);
 
   async function handleFileUpload(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
@@ -30,12 +31,16 @@ export function ImagePicker({
       const res = await fetch("/api/uploads", { method: "POST", body: formData });
       const body = await res.json();
       if (!res.ok) throw new Error(body.error ?? "Upload failed.");
-      onChange(body.url as string);
+      const url = body.url as string;
+      // The text field is uncontrolled (see below), so an upload needs to
+      // update its displayed value imperatively too.
+      if (textInputRef.current) textInputRef.current.value = url;
+      onChange(url);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Upload failed.");
     } finally {
       setUploading(false);
-      if (inputRef.current) inputRef.current.value = "";
+      if (fileInputRef.current) fileInputRef.current.value = "";
     }
   }
 
@@ -44,16 +49,19 @@ export function ImagePicker({
       <label className="mb-1 block text-xs text-neutral-400">{label}</label>
       <div className="flex gap-2">
         <input
+          ref={textInputRef}
           type="text"
-          value={value || ""}
-          onChange={(e) => onChange(e.target.value)}
+          defaultValue={value || ""}
+          onBlur={(e) => {
+            if (e.target.value !== value) onChange(e.target.value);
+          }}
           placeholder="https://…"
           className="flex-1 rounded-lg border border-neutral-700 bg-neutral-900 px-3 py-2 text-sm text-white outline-none"
         />
         <label className="flex cursor-pointer items-center justify-center rounded-lg border border-neutral-700 bg-neutral-800 px-3 py-2 text-sm text-white shadow-sm transition-colors hover:bg-neutral-700">
           {uploading ? "…" : "📁"}
           <input
-            ref={inputRef}
+            ref={fileInputRef}
             type="file"
             accept="image/*"
             className="hidden"
