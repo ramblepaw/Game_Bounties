@@ -1,6 +1,7 @@
 import "server-only";
 import { db } from "@/lib/db";
 import { computeChecklistProgress, type ProgressItemInput } from "@/lib/checklist-progress";
+import { readUploadedImageAsBase64 } from "@/lib/uploads";
 
 function bySortTitle<T extends { title: string; sortTitle: string | null }>(games: T[]): T[] {
   return [...games].sort((a, b) => (a.sortTitle || a.title).localeCompare(b.sortTitle || b.title));
@@ -60,6 +61,28 @@ export async function getChecklistExportData(checklistId: string) {
   });
   if (!checklist) return null;
 
+  // Bundle any locally-stored images (as opposed to hotlinked external URLs) as base64
+  // alongside the JSON tree, so importing onto a different install -- or after this
+  // server's /uploads directory has been wiped -- restores the pictures too, not just
+  // dangling references to them.
+  const localImageUrls = new Set<string>();
+  if (checklist.badgeIconUrl) localImageUrls.add(checklist.badgeIconUrl);
+  for (const tab of checklist.tabs) {
+    if (tab.canvasBgImageUrl) localImageUrls.add(tab.canvasBgImageUrl);
+    for (const section of tab.sections) {
+      for (const item of section.items) {
+        if (item.imageUrl) localImageUrls.add(item.imageUrl);
+      }
+    }
+  }
+  const images: Record<string, string> = {};
+  await Promise.all(
+    Array.from(localImageUrls).map(async (url) => {
+      const base64 = await readUploadedImageAsBase64(url);
+      if (base64) images[url] = base64;
+    }),
+  );
+
   return {
     name: checklist.name,
     description: checklist.description,
@@ -68,6 +91,7 @@ export async function getChecklistExportData(checklistId: string) {
     badgeName: checklist.badgeName,
     badgeIconUrl: checklist.badgeIconUrl,
     colorPresets: checklist.colorPresets.map((p) => ({ name: p.name, color: p.color })),
+    images,
     tabs: checklist.tabs.map((tab) => ({
       title: tab.title,
       order: tab.order,

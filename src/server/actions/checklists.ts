@@ -6,6 +6,7 @@ import { revalidatePath } from "next/cache";
 import { getSession } from "@/lib/auth";
 import { db } from "@/lib/db";
 import type { ItemLayout, ImageFit, ItemKind } from "@/generated/prisma/enums";
+import { saveImageFromBase64, uploadKindFromUrl } from "@/lib/uploads";
 
 async function requireSession() {
   const session = await getSession();
@@ -239,6 +240,7 @@ const importChecklistSchema = z.object({
   badgeName: z.string().nullable().optional(),
   badgeIconUrl: z.string().nullable().optional(),
   colorPresets: z.array(z.object({ name: z.string().min(1), color: z.string().min(1) })).default([]),
+  images: z.record(z.string(), z.string()).default({}),
   tabs: z.array(importTabSchema).min(1, "Must have at least one tab."),
 });
 
@@ -269,6 +271,24 @@ export async function importChecklist(
   }
   const data = parsed.data;
 
+  // Re-save any bundled images through the normal upload pipeline (which assigns fresh
+  // filenames), then point every reference at the new URLs. Best-effort: an image that
+  // fails to decode/validate just falls back to its original (likely dead) URL instead
+  // of failing the whole import.
+  const urlMap = new Map<string, string>();
+  await Promise.all(
+    Object.entries(data.images).map(async ([originalUrl, base64]) => {
+      const kind = uploadKindFromUrl(originalUrl);
+      if (!kind) return;
+      try {
+        urlMap.set(originalUrl, await saveImageFromBase64(base64, kind));
+      } catch {
+        // Leave unmapped -- falls back to the original (likely dead) URL below.
+      }
+    }),
+  );
+  const remap = (url: string | null | undefined): string | null => (url ? (urlMap.get(url) ?? url) : null);
+
   const count = await db.checklist.count({ where: { gameId } });
 
   const checklist = await db.checklist.create({
@@ -280,14 +300,14 @@ export async function importChecklist(
       order: count,
       tokenReward: data.tokenReward ?? null,
       badgeName: data.badgeName ?? null,
-      badgeIconUrl: data.badgeIconUrl ?? null,
+      badgeIconUrl: remap(data.badgeIconUrl),
       colorPresets: { create: data.colorPresets },
       tabs: {
         create: data.tabs.map((tab, tabIndex) => ({
           title: tab.title,
           order: tab.order ?? tabIndex,
           canvasBgColor: tab.canvasBgColor ?? null,
-          canvasBgImageUrl: tab.canvasBgImageUrl ?? null,
+          canvasBgImageUrl: remap(tab.canvasBgImageUrl),
           bgColor: tab.bgColor ?? null,
           textColor: tab.textColor ?? null,
           borderColor: tab.borderColor ?? null,
@@ -309,7 +329,7 @@ export async function importChecklist(
                 create: section.items.map((item, itemIndex) => ({
                   title: item.title,
                   description: item.description ?? null,
-                  imageUrl: item.imageUrl ?? null,
+                  imageUrl: remap(item.imageUrl),
                   url: item.url ?? null,
                   order: item.order ?? itemIndex,
                   bgColor: item.bgColor ?? null,

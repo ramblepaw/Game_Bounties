@@ -1,11 +1,13 @@
 import "server-only";
-import { mkdir, writeFile } from "node:fs/promises";
+import { mkdir, readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { createId } from "@paralleldrive/cuid2";
 import { fileTypeFromBuffer } from "file-type";
 
 export type UploadKind = "covers" | "items" | "badges";
 export const UPLOAD_KINDS: UploadKind[] = ["covers", "items", "badges"];
+
+const UPLOAD_URL_PATTERN = /^\/api\/uploads\/(covers|items|badges)\/([^/]+)$/;
 
 const UPLOAD_ROOT =
   process.env.UPLOADS_DIR ?? path.join(/* turbopackIgnore: true */ process.cwd(), "uploads");
@@ -64,4 +66,28 @@ export function resolveUploadPath(segments: string[]): string {
     throw new UploadValidationError("Invalid path.");
   }
   return path.join(UPLOAD_ROOT, ...segments);
+}
+
+/** Reads a locally-stored upload back out as base64, for bundling into a checklist export. */
+export async function readUploadedImageAsBase64(url: string): Promise<string | null> {
+  const match = url.match(UPLOAD_URL_PATTERN);
+  if (!match) return null;
+  const [, kind, filename] = match;
+  try {
+    const buffer = await readFile(resolveUploadPath([kind, filename]));
+    return buffer.toString("base64");
+  } catch {
+    return null;
+  }
+}
+
+/** Re-saves a base64 payload from a checklist import through the normal validation pipeline. */
+export async function saveImageFromBase64(base64: string, kind: UploadKind): Promise<string> {
+  const buffer = Buffer.from(base64, "base64");
+  return saveImageBuffer(buffer, kind);
+}
+
+export function uploadKindFromUrl(url: string): UploadKind | null {
+  const match = url.match(UPLOAD_URL_PATTERN);
+  return (match?.[1] as UploadKind) ?? null;
 }
