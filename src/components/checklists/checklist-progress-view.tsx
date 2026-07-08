@@ -83,6 +83,16 @@ function getGridColsClass(cols: number): string {
     8: "grid-cols-2 sm:grid-cols-8",
     9: "grid-cols-2 sm:grid-cols-9",
     10: "grid-cols-2 sm:grid-cols-10",
+    11: "grid-cols-2 sm:grid-cols-11",
+    12: "grid-cols-2 sm:grid-cols-12",
+    13: "grid-cols-2 sm:grid-cols-[repeat(13,minmax(0,1fr))]",
+    14: "grid-cols-2 sm:grid-cols-[repeat(14,minmax(0,1fr))]",
+    15: "grid-cols-2 sm:grid-cols-[repeat(15,minmax(0,1fr))]",
+    16: "grid-cols-2 sm:grid-cols-[repeat(16,minmax(0,1fr))]",
+    17: "grid-cols-2 sm:grid-cols-[repeat(17,minmax(0,1fr))]",
+    18: "grid-cols-2 sm:grid-cols-[repeat(18,minmax(0,1fr))]",
+    19: "grid-cols-2 sm:grid-cols-[repeat(19,minmax(0,1fr))]",
+    20: "grid-cols-2 sm:grid-cols-[repeat(20,minmax(0,1fr))]",
   };
   return map[cols] || "grid-cols-2 sm:grid-cols-4";
 }
