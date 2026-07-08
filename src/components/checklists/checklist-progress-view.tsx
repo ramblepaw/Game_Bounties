@@ -255,7 +255,7 @@ function ModuleCard({
                     )}
                     {section.itemLayout === "GRID" ? (
                       <>
-                        <div className="absolute inset-0 flex items-center justify-center overflow-hidden bg-black/5 p-2 pb-8 text-xs text-neutral-400">
+                        <div className="absolute inset-0 flex items-center justify-center overflow-hidden bg-black/5 p-2 pb-8">
                           {item.imageUrl ? (
                             <div className="h-full w-full" style={{ transform: `scale(${item.imageScale})` }}>
                               {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -270,9 +270,7 @@ function ModuleCard({
                                 className="h-full w-full"
                               />
                             </div>
-                          ) : (
-                            "No image"
-                          )}
+                          ) : null}
                         </div>
                         <div
                           className={cn(
