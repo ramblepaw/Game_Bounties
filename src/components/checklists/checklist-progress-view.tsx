@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { toggleItem, setCounterValue } from "@/server/actions/checklists";
+import { toggleItem, setCounterValue, setItemStage } from "@/server/actions/checklists";
 import { resolveBackgroundStyle, isGradient } from "@/lib/background-style";
 import { fontClassForKey } from "@/lib/fonts";
 import { cn } from "@/lib/cn";
@@ -23,7 +23,7 @@ interface ProgressItem {
   imageScale: number;
   imagePositionX: number;
   imagePositionY: number;
-  kind: "CHECKBOX" | "COUNTER";
+  kind: "CHECKBOX" | "COUNTER" | "STAGE";
   targetCount: number | null;
   currentCount: number;
   isComplete: boolean;
@@ -41,6 +41,7 @@ interface ProgressSection {
   textSize: number | null;
   fontFamily: string | null;
   titleBgColor: string | null;
+  stageLabels: string[];
   items: ProgressItem[];
 }
 
@@ -97,6 +98,19 @@ function getGridColsClass(cols: number): string {
   return map[cols] || "grid-cols-2 sm:grid-cols-4";
 }
 
+// Stage 0 always means "not started"; stages 1..N map to the module's own
+// stageLabels, so the palette only needs to cover the reached (>=1) stages.
+const STAGE_COLORS = ["#38bdf8", "#a78bfa", "#facc15", "#34d399", "#f97316", "#f472b6"];
+
+function stageColorFor(stage: number): string {
+  return stage <= 0 ? "#4c1d95" : STAGE_COLORS[(stage - 1) % STAGE_COLORS.length];
+}
+
+function stageLabelFor(stageLabels: string[], stage: number): string {
+  if (stage <= 0) return "Not started";
+  return stageLabels[stage - 1] ?? `Stage ${stage}`;
+}
+
 function CounterControl({
   item,
   onChange,
@@ -132,10 +146,12 @@ function ModuleCard({
   section,
   onToggle,
   onSetCounter,
+  onSetStage,
 }: {
   section: ProgressSection;
   onToggle: (itemId: string) => void;
   onSetCounter: (itemId: string, value: number) => void;
+  onSetStage: (itemId: string, stage: number) => void;
 }) {
   const allComplete = section.items.length > 0 && section.items.every((i) => i.isComplete);
   const completedCount = section.items.filter((i) => i.isComplete).length;
@@ -196,6 +212,9 @@ function ModuleCard({
             >
               {section.items.map((item) => {
                 const isCounter = item.kind === "COUNTER";
+                const isStage = item.kind === "STAGE";
+                const stageCount = Math.max(1, section.stageLabels.length);
+                const currentStage = Math.min(item.currentCount, stageCount);
                 // A dark shading behind the title keeps text legible over a photo or a
                 // plain color, but it also muddies a deliberately-chosen gradient
                 // background -- so only apply it when there isn't one.
@@ -203,22 +222,30 @@ function ModuleCard({
                 return (
                   <div
                     key={item.id}
-                    role={isCounter ? undefined : "checkbox"}
-                    aria-checked={isCounter ? undefined : item.isComplete}
+                    role={isCounter ? undefined : isStage ? "button" : "checkbox"}
+                    aria-checked={isCounter || isStage ? undefined : item.isComplete}
+                    aria-label={isStage ? stageLabelFor(section.stageLabels, currentStage) : undefined}
                     tabIndex={isCounter ? undefined : 0}
-                    onClick={isCounter ? undefined : () => onToggle(item.id)}
+                    onClick={
+                      isCounter
+                        ? undefined
+                        : isStage
+                          ? () => onSetStage(item.id, (currentStage + 1) % (stageCount + 1))
+                          : () => onToggle(item.id)
+                    }
                     onKeyDown={
                       isCounter
                         ? undefined
                         : (e) => {
                             if (e.key === "Enter" || e.key === " ") {
                               e.preventDefault();
-                              onToggle(item.id);
+                              if (isStage) onSetStage(item.id, (currentStage + 1) % (stageCount + 1));
+                              else onToggle(item.id);
                             }
                           }
                     }
                     style={{
-                      borderColor: item.borderColor ?? "transparent",
+                      borderColor: isStage ? stageColorFor(currentStage) : (item.borderColor ?? "transparent"),
                       color: item.textColor ?? "#ede9fe",
                     }}
                     className={cn(
@@ -252,6 +279,14 @@ function ModuleCard({
                       >
                         🔗
                       </a>
+                    )}
+                    {isStage && section.itemLayout === "GRID" && (
+                      <span
+                        className="absolute left-1.5 top-1.5 z-20 rounded-full bg-black/55 px-2 py-0.5 text-[10px] font-bold"
+                        style={{ color: stageColorFor(currentStage) }}
+                      >
+                        {stageLabelFor(section.stageLabels, currentStage)}
+                      </span>
                     )}
                     {section.itemLayout === "GRID" ? (
                       <>
@@ -330,6 +365,14 @@ function ModuleCard({
                             className="order-last ml-auto"
                           />
                         )}
+                        {isStage && (
+                          <span
+                            className="order-last ml-auto text-xs font-bold"
+                            style={{ color: stageColorFor(currentStage) }}
+                          >
+                            {stageLabelFor(section.stageLabels, currentStage)}
+                          </span>
+                        )}
                       </>
                     )}
                   </div>
@@ -360,6 +403,13 @@ export function ChecklistProgressView({ tabs }: { tabs: ProgressTab[] }) {
   function handleSetCounter(itemId: string, value: number) {
     startTransition(async () => {
       await setCounterValue(itemId, value);
+      router.refresh();
+    });
+  }
+
+  function handleSetStage(itemId: string, stage: number) {
+    startTransition(async () => {
+      await setItemStage(itemId, stage);
       router.refresh();
     });
   }
@@ -412,6 +462,7 @@ export function ChecklistProgressView({ tabs }: { tabs: ProgressTab[] }) {
               section={section}
               onToggle={handleToggle}
               onSetCounter={handleSetCounter}
+              onSetStage={handleSetStage}
             />
           ))}
           {activeTab.sections.length === 0 && (

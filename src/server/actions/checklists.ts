@@ -169,6 +169,9 @@ export async function duplicateChecklist(gameId: string, checklistId: string): P
               textColor: section.textColor,
               borderColor: section.borderColor,
               textSize: section.textSize,
+              fontFamily: section.fontFamily,
+              titleBgColor: section.titleBgColor,
+              stageLabels: section.stageLabels,
               items: {
                 // Style/content copies over; progress (isComplete/completedAt/
                 // currentCount) intentionally does not -- the duplicate starts fresh.
@@ -201,7 +204,7 @@ const importItemSchema = z.object({
   imageScale: z.number().optional(),
   imagePositionX: z.number().optional(),
   imagePositionY: z.number().optional(),
-  kind: z.enum(["CHECKBOX", "COUNTER"]).optional(),
+  kind: z.enum(["CHECKBOX", "COUNTER", "STAGE"]).optional(),
   targetCount: z.number().nullable().optional(),
 });
 
@@ -217,6 +220,7 @@ const importSectionSchema = z.object({
   textSize: z.number().nullable().optional(),
   fontFamily: z.string().nullable().optional(),
   titleBgColor: z.string().nullable().optional(),
+  stageLabels: z.array(z.string()).default([]),
   items: z.array(importItemSchema).default([]),
 });
 
@@ -325,6 +329,7 @@ export async function importChecklist(
               textSize: section.textSize ?? null,
               fontFamily: section.fontFamily ?? null,
               titleBgColor: section.titleBgColor ?? null,
+              stageLabels: section.stageLabels,
               items: {
                 create: section.items.map((item, itemIndex) => ({
                   title: item.title,
@@ -399,6 +404,54 @@ export async function createTab(checklistId: string, title?: string): Promise<{ 
   return { id: tab.id };
 }
 
+export async function duplicateTab(tabId: string): Promise<{ id: string }> {
+  await requireSession();
+  const original = await db.checklistTab.findUniqueOrThrow({
+    where: { id: tabId },
+    include: {
+      sections: {
+        orderBy: { order: "asc" },
+        include: { items: { orderBy: { order: "asc" } } },
+      },
+    },
+  });
+  const count = await db.checklistTab.count({ where: { checklistId: original.checklistId } });
+
+  const duplicate = await db.checklistTab.create({
+    data: {
+      checklistId: original.checklistId,
+      title: original.title,
+      order: count,
+      canvasBgColor: original.canvasBgColor,
+      canvasBgImageUrl: original.canvasBgImageUrl,
+      bgColor: original.bgColor,
+      textColor: original.textColor,
+      borderColor: original.borderColor,
+      textSize: original.textSize,
+      sections: {
+        create: original.sections.map((section) => ({
+          name: section.name,
+          order: section.order,
+          itemLayout: section.itemLayout,
+          gridColumns: section.gridColumns,
+          span: section.span,
+          bgColor: section.bgColor,
+          textColor: section.textColor,
+          borderColor: section.borderColor,
+          textSize: section.textSize,
+          fontFamily: section.fontFamily,
+          titleBgColor: section.titleBgColor,
+          stageLabels: section.stageLabels,
+          items: { create: section.items.map((item) => cloneItemFields(item)) },
+        })),
+      },
+    },
+  });
+
+  revalidatePath("/", "layout");
+  return { id: duplicate.id };
+}
+
 export type TabStyleInput = {
   title?: string;
   canvasBgColor?: string | null;
@@ -445,6 +498,7 @@ export type ModuleStyleInput = {
   textSize?: number | null;
   fontFamily?: string | null;
   titleBgColor?: string | null;
+  stageLabels?: string[];
 };
 
 export async function createSection(tabId: string, afterSectionId?: string): Promise<{ id: string }> {
@@ -499,6 +553,9 @@ export async function duplicateSection(sectionId: string): Promise<{ id: string 
       textColor: original.textColor,
       borderColor: original.borderColor,
       textSize: original.textSize,
+      fontFamily: original.fontFamily,
+      titleBgColor: original.titleBgColor,
+      stageLabels: original.stageLabels,
       items: { create: original.items.map((item) => cloneItemFields(item)) },
     },
   });
@@ -607,6 +664,29 @@ export async function setCounterValue(itemId: string, value: number): Promise<vo
   const currentCount = Math.max(0, Math.floor(value) || 0);
   const wasComplete = item.isComplete;
   const isComplete = item.targetCount != null && currentCount >= item.targetCount;
+
+  await db.checklistItem.update({
+    where: { id: itemId },
+    data: {
+      currentCount,
+      isComplete,
+      completedAt: isComplete ? (wasComplete ? item.completedAt : new Date()) : null,
+    },
+  });
+  revalidatePath("/", "layout");
+}
+
+/** Sets a STAGE item's current stage (0 = not started, up to its module's stage count). */
+export async function setItemStage(itemId: string, stage: number): Promise<void> {
+  await requireSession();
+  const item = await db.checklistItem.findUniqueOrThrow({
+    where: { id: itemId },
+    include: { section: { select: { stageLabels: true } } },
+  });
+  const stageCount = item.section.stageLabels.length;
+  const currentCount = Math.max(0, Math.min(Math.floor(stage) || 0, stageCount));
+  const wasComplete = item.isComplete;
+  const isComplete = stageCount > 0 && currentCount >= stageCount;
 
   await db.checklistItem.update({
     where: { id: itemId },

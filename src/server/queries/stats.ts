@@ -1,7 +1,7 @@
 import "server-only";
 import { subDays, formatISO } from "date-fns";
 import { db } from "@/lib/db";
-import { computeChecklistProgress } from "@/lib/checklist-progress";
+import { computeChecklistProgress, flattenProgressItems } from "@/lib/checklist-progress";
 
 export async function playtimePerGame() {
   const games = await db.game.findMany({
@@ -69,14 +69,17 @@ export async function checklistCompletionRates() {
       tabs: {
         select: {
           sections: {
-            select: { items: { select: { kind: true, isComplete: true, targetCount: true, currentCount: true } } },
+            select: {
+              stageLabels: true,
+              items: { select: { kind: true, isComplete: true, targetCount: true, currentCount: true } },
+            },
           },
         },
       },
     },
   });
   return checklists.map((c) => {
-    const items = c.tabs.flatMap((t) => t.sections.flatMap((s) => s.items));
+    const items = flattenProgressItems(c.tabs.flatMap((t) => t.sections));
     const { percent } = computeChecklistProgress(items);
     return { label: `${c.game.title} — ${c.name}`, percent };
   });

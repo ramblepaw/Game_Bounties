@@ -1,7 +1,7 @@
 import "server-only";
 import { differenceInCalendarDays, addDays } from "date-fns";
 import { db } from "@/lib/db";
-import { itemWeight, computeChecklistProgress } from "@/lib/checklist-progress";
+import { itemWeight, computeChecklistProgress, flattenProgressItems } from "@/lib/checklist-progress";
 
 export type CompletionEstimate = {
   projectedDate: Date | null;
@@ -22,6 +22,7 @@ export async function estimateCompletionDate(checklistId: string): Promise<Compl
         select: {
           sections: {
             select: {
+              stageLabels: true,
               items: {
                 select: { kind: true, isComplete: true, completedAt: true, targetCount: true, currentCount: true },
               },
@@ -33,7 +34,7 @@ export async function estimateCompletionDate(checklistId: string): Promise<Compl
   });
   if (!checklist) return { projectedDate: null, velocityPerDay: null, confidence: "none" };
 
-  const items = checklist.tabs.flatMap((t) => t.sections.flatMap((s) => s.items));
+  const items = flattenProgressItems(checklist.tabs.flatMap((t) => t.sections));
   const { total, completed } = computeChecklistProgress(items);
   const remaining = total - completed;
 

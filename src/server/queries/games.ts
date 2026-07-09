@@ -1,6 +1,10 @@
 import "server-only";
 import { db } from "@/lib/db";
-import { computeChecklistProgress, type ProgressItemInput } from "@/lib/checklist-progress";
+import {
+  computeChecklistProgress,
+  flattenProgressItems,
+  type ProgressSectionInput,
+} from "@/lib/checklist-progress";
 import { readUploadedImageAsBase64 } from "@/lib/uploads";
 
 function bySortTitle<T extends { title: string; sortTitle: string | null }>(games: T[]): T[] {
@@ -18,10 +22,8 @@ export async function listGames() {
   return bySortTitle(games);
 }
 
-export function checklistProgress(checklist: {
-  tabs: { sections: { items: ProgressItemInput[] }[] }[];
-}) {
-  const items = checklist.tabs.flatMap((t) => t.sections.flatMap((s) => s.items));
+export function checklistProgress(checklist: { tabs: { sections: ProgressSectionInput[] }[] }) {
+  const items = flattenProgressItems(checklist.tabs.flatMap((t) => t.sections));
   return computeChecklistProgress(items);
 }
 
@@ -113,6 +115,7 @@ export async function getChecklistExportData(checklistId: string) {
         textSize: section.textSize,
         fontFamily: section.fontFamily,
         titleBgColor: section.titleBgColor,
+        stageLabels: section.stageLabels,
         items: section.items.map((item) => ({
           title: item.title,
           description: item.description,

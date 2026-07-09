@@ -7,6 +7,7 @@ import {
   createTab,
   updateTab,
   deleteTab,
+  duplicateTab,
   reorderTabs,
   createSection,
   updateSection,
@@ -37,7 +38,7 @@ import { cn } from "@/lib/cn";
 
 type ItemLayoutMode = "LIST" | "GRID";
 type ImageFitMode = "CONTAIN" | "COVER";
-type ItemKindMode = "CHECKBOX" | "COUNTER";
+type ItemKindMode = "CHECKBOX" | "COUNTER" | "STAGE";
 
 interface DesignerItem {
   id: string;
@@ -75,6 +76,7 @@ interface DesignerSection {
   textSize: number | null;
   fontFamily: string | null;
   titleBgColor: string | null;
+  stageLabels: string[];
   items: DesignerItem[];
 }
 
@@ -276,7 +278,13 @@ export function ChecklistDesigner({
 
   async function duplicateSelected() {
     if (!selectedId) return;
-    if (selectedType === "module") {
+    if (selectedType === "tab") {
+      const { id } = await duplicateTab(selectedId);
+      setActiveTabId(id);
+      setSelectedId(id);
+      setSelectedType("tab");
+      refresh();
+    } else if (selectedType === "module") {
       const { id } = await duplicateSection(selectedId);
       setSelectedId(id);
       setSelectedType("module");
@@ -370,7 +378,7 @@ export function ChecklistDesigner({
             Editing {selectedType}
           </h3>
           <div className="flex items-center gap-1">
-            {(selectedType === "module" || selectedType === "item") && (
+            {(selectedType === "tab" || selectedType === "module" || selectedType === "item") && (
               <button
                 type="button"
                 onClick={duplicateSelected}
@@ -564,6 +572,25 @@ export function ChecklistDesigner({
                 onDeletePreset={deletePreset}
               />
             </div>
+            <div>
+              <label className="mb-1 block text-xs text-neutral-500">
+                Stage names (comma separated, for Stage-type targets)
+              </label>
+              <input
+                key={`${selectedSection.id}-stages`}
+                type="text"
+                defaultValue={selectedSection.stageLabels.join(", ")}
+                onBlur={(e) => {
+                  const labels = e.target.value
+                    .split(",")
+                    .map((s) => s.trim())
+                    .filter(Boolean);
+                  updateSelectedData("stageLabels", labels);
+                }}
+                placeholder="Caught, Research 10, Perfect"
+                className="w-full rounded-md border border-neutral-300 px-3 py-2 text-sm outline-none focus:border-neutral-900"
+              />
+            </div>
           </div>
         )}
 
@@ -571,13 +598,13 @@ export function ChecklistDesigner({
           <>
             <div>
               <label className="mb-2 block text-xs font-bold text-neutral-500">Type</label>
-              <div className="grid grid-cols-2 gap-1 rounded-lg border border-neutral-200 bg-neutral-50 p-1 dark:border-neutral-700 dark:bg-neutral-800">
+              <div className="grid grid-cols-3 gap-1 rounded-lg border border-neutral-200 bg-neutral-50 p-1 dark:border-neutral-700 dark:bg-neutral-800">
                 <button
                   type="button"
                   onClick={() => updateSelectedData("kind", "CHECKBOX")}
                   className={cn(
                     "rounded py-1 text-xs font-bold",
-                    selectedItem.kind !== "COUNTER" ? "bg-white shadow" : "text-neutral-500",
+                    selectedItem.kind === "CHECKBOX" ? "bg-white shadow" : "text-neutral-500",
                   )}
                 >
                   Checkbox
@@ -592,7 +619,22 @@ export function ChecklistDesigner({
                 >
                   Counter
                 </button>
+                <button
+                  type="button"
+                  onClick={() => updateSelectedData("kind", "STAGE")}
+                  className={cn(
+                    "rounded py-1 text-xs font-bold",
+                    selectedItem.kind === "STAGE" ? "bg-white shadow" : "text-neutral-500",
+                  )}
+                >
+                  Stage
+                </button>
               </div>
+              {selectedItem.kind === "STAGE" && (
+                <p className="mt-2 text-xs text-neutral-500">
+                  Cycles through the module&apos;s stage names above on click.
+                </p>
+              )}
               {selectedItem.kind === "COUNTER" && (
                 <label className="mt-2 flex items-center justify-between text-xs text-neutral-500">
                   Target count
@@ -972,6 +1014,16 @@ export function ChecklistDesigner({
                                 )}
                               >
                                 0 / {item.targetCount ?? "?"}
+                              </span>
+                            )}
+                            {item.kind === "STAGE" && (
+                              <span
+                                className={cn(
+                                  "z-20 rounded-full bg-black/60 px-2 py-0.5 text-[10px] font-bold text-white",
+                                  section.itemLayout === "GRID" ? "absolute left-1.5 top-1.5" : "order-last ml-auto",
+                                )}
+                              >
+                                Stage 0 / {Math.max(1, section.stageLabels.length)}
                               </span>
                             )}
                             {section.itemLayout === "GRID" ? (
