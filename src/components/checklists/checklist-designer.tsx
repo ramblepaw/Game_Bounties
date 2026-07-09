@@ -602,7 +602,7 @@ export function ChecklistDesigner({
                 {selectedSection.stages.map((stage, i) => (
                   <div
                     key={`${selectedSection.id}-stage-${i}-${selectedSection.stages.length}`}
-                    className="flex flex-col gap-1.5 rounded-md border border-neutral-200 p-2 dark:border-neutral-700"
+                    className="flex flex-col gap-3 rounded-lg border border-neutral-200 p-3 dark:border-neutral-700"
                   >
                     <div className="flex items-center gap-1.5">
                       <input
@@ -621,37 +621,36 @@ export function ChecklistDesigner({
                         ×
                       </button>
                     </div>
-                    <div className="grid grid-cols-3 gap-1.5">
-                      <div>
-                        <label className="mb-0.5 block text-[10px] text-neutral-500">Background</label>
-                        <ColorField
-                          defaultValue={stage.bgColor ?? "#241b35"}
-                          onChange={(v) => updateStage(i, "bgColor", v)}
-                          presets={colorPresets}
-                          onSavePreset={savePreset}
-                          onDeletePreset={deletePreset}
-                        />
-                      </div>
-                      <div>
-                        <label className="mb-0.5 block text-[10px] text-neutral-500">Border</label>
-                        <ColorField
-                          defaultValue={stage.borderColor ?? "#38bdf8"}
-                          onChange={(v) => updateStage(i, "borderColor", v)}
-                          presets={colorPresets}
-                          onSavePreset={savePreset}
-                          onDeletePreset={deletePreset}
-                        />
-                      </div>
-                      <div>
-                        <label className="mb-0.5 block text-[10px] text-neutral-500">Text</label>
-                        <ColorField
-                          defaultValue={stage.textColor ?? "#38bdf8"}
-                          onChange={(v) => updateStage(i, "textColor", v)}
-                          presets={colorPresets}
-                          onSavePreset={savePreset}
-                          onDeletePreset={deletePreset}
-                        />
-                      </div>
+                    <div>
+                      <label className="mb-1 block text-xs text-neutral-500">Background</label>
+                      <GradientColorPicker
+                        value={stage.bgColor}
+                        fallback="#241b35"
+                        onChange={(v) => updateStage(i, "bgColor", v)}
+                        presets={colorPresets}
+                        onSavePreset={savePreset}
+                        onDeletePreset={deletePreset}
+                      />
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <label className="text-xs text-neutral-500">Text color</label>
+                      <ColorField
+                        defaultValue={stage.textColor ?? "#38bdf8"}
+                        onChange={(v) => updateStage(i, "textColor", v)}
+                        presets={colorPresets}
+                        onSavePreset={savePreset}
+                        onDeletePreset={deletePreset}
+                      />
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <label className="text-xs text-neutral-500">Border color</label>
+                      <ColorField
+                        defaultValue={stage.borderColor ?? "#38bdf8"}
+                        onChange={(v) => updateStage(i, "borderColor", v)}
+                        presets={colorPresets}
+                        onSavePreset={savePreset}
+                        onDeletePreset={deletePreset}
+                      />
                     </div>
                   </div>
                 ))}
