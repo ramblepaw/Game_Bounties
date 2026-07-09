@@ -240,7 +240,8 @@ export function ChecklistDesigner({
 
   async function addModule() {
     if (!activeTab) return;
-    const { id } = await createSection(activeTab.id);
+    const afterSectionId = selectedType === "module" ? selectedSection?.id : undefined;
+    const { id } = await createSection(activeTab.id, afterSectionId);
     setSelectedId(id);
     setSelectedType("module");
     refresh();

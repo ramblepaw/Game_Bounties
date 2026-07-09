@@ -447,12 +447,22 @@ export type ModuleStyleInput = {
   titleBgColor?: string | null;
 };
 
-export async function createSection(tabId: string): Promise<{ id: string }> {
+export async function createSection(tabId: string, afterSectionId?: string): Promise<{ id: string }> {
   await requireSession();
-  const count = await db.checklistSection.count({ where: { tabId } });
+  const siblings = await db.checklistSection.findMany({ where: { tabId }, orderBy: { order: "asc" } });
   const section = await db.checklistSection.create({
-    data: { tabId, name: "New Module", itemLayout: "GRID", gridColumns: 4, span: 4, order: count },
+    data: { tabId, name: "New Module", itemLayout: "GRID", gridColumns: 4, span: 4, order: siblings.length },
   });
+
+  // Slot the new module in right after the currently-selected one instead of
+  // always leaving it appended at the end.
+  const afterIndex = afterSectionId ? siblings.findIndex((s) => s.id === afterSectionId) : -1;
+  if (afterIndex !== -1) {
+    const orderedIds = siblings.map((s) => s.id);
+    orderedIds.splice(afterIndex + 1, 0, section.id);
+    await db.$transaction(renumberSections(orderedIds));
+  }
+
   revalidatePath("/", "layout");
   return { id: section.id };
 }
@@ -612,6 +622,11 @@ export async function setCounterValue(itemId: string, value: number): Promise<vo
 /** Bulk-renumber a section's items to match `orderedIds`, 0-indexed. */
 function renumberItems(orderedIds: string[]) {
   return orderedIds.map((id, index) => db.checklistItem.update({ where: { id }, data: { order: index } }));
+}
+
+/** Bulk-renumber a tab's modules to match `orderedIds`, 0-indexed. */
+function renumberSections(orderedIds: string[]) {
+  return orderedIds.map((id, index) => db.checklistSection.update({ where: { id }, data: { order: index } }));
 }
 
 /**
