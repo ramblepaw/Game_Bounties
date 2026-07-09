@@ -1,6 +1,7 @@
 import { notFound } from "next/navigation";
 import { getChecklistDetail, listGameTitles, listColorPresets } from "@/server/queries/games";
 import { ChecklistDesigner } from "@/components/checklists/checklist-designer";
+import { asStages } from "@/lib/stages";
 
 export default async function ChecklistEditPage({
   params,
@@ -15,7 +16,15 @@ export default async function ChecklistEditPage({
   ]);
   if (!checklist) notFound();
 
+  const designerChecklist = {
+    ...checklist,
+    tabs: checklist.tabs.map((tab) => ({
+      ...tab,
+      sections: tab.sections.map((section) => ({ ...section, stages: asStages(section.stages) })),
+    })),
+  };
+
   return (
-    <ChecklistDesigner checklist={checklist} gameId={gameId} games={games} colorPresets={colorPresets} />
+    <ChecklistDesigner checklist={designerChecklist} gameId={gameId} games={games} colorPresets={colorPresets} />
   );
 }

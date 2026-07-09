@@ -34,6 +34,7 @@ import { ColorField, type ColorPreset } from "@/components/checklists/color-fiel
 import { resolveBackgroundStyle, isGradient } from "@/lib/background-style";
 import { FONT_OPTIONS, fontClassForKey } from "@/lib/fonts";
 import { DEFAULT_TOKENS_PER_COMPLETION } from "@/lib/token-economy";
+import type { StageDef } from "@/lib/stages";
 import { cn } from "@/lib/cn";
 
 type ItemLayoutMode = "LIST" | "GRID";
@@ -76,7 +77,7 @@ interface DesignerSection {
   textSize: number | null;
   fontFamily: string | null;
   titleBgColor: string | null;
-  stageLabels: string[];
+  stages: StageDef[];
   items: DesignerItem[];
 }
 
@@ -302,6 +303,27 @@ export function ChecklistDesigner({
     if (selectedType === "tab") updateTab(selectedId, { [field]: value }).then(refresh);
     else if (selectedType === "module") updateSection(selectedId, { [field]: value }).then(refresh);
     else if (selectedType === "item") updateItem(selectedId, { [field]: value }).then(refresh);
+  }
+
+  function updateStage(index: number, field: keyof StageDef, value: string) {
+    if (!selectedSection) return;
+    const stages = selectedSection.stages.map((s, i) => (i === index ? { ...s, [field]: value } : s));
+    updateSelectedData("stages", stages);
+  }
+
+  function addStage() {
+    if (!selectedSection) return;
+    const stages: StageDef[] = [
+      ...selectedSection.stages,
+      { name: "", bgColor: null, borderColor: null, textColor: null },
+    ];
+    updateSelectedData("stages", stages);
+  }
+
+  function removeStage(index: number) {
+    if (!selectedSection) return;
+    const stages = selectedSection.stages.filter((_, i) => i !== index);
+    updateSelectedData("stages", stages);
   }
 
   function handleDragStart(e: React.DragEvent, id: string) {
@@ -573,23 +595,74 @@ export function ChecklistDesigner({
               />
             </div>
             <div>
-              <label className="mb-1 block text-xs text-neutral-500">
-                Stage names (comma separated, for Stage-type targets)
+              <label className="mb-2 block text-xs font-bold text-neutral-500">
+                Stages (for Stage-type targets)
               </label>
-              <input
-                key={`${selectedSection.id}-stages`}
-                type="text"
-                defaultValue={selectedSection.stageLabels.join(", ")}
-                onBlur={(e) => {
-                  const labels = e.target.value
-                    .split(",")
-                    .map((s) => s.trim())
-                    .filter(Boolean);
-                  updateSelectedData("stageLabels", labels);
-                }}
-                placeholder="Caught, Research 10, Perfect"
-                className="w-full rounded-md border border-neutral-300 px-3 py-2 text-sm outline-none focus:border-neutral-900"
-              />
+              <div className="flex flex-col gap-2">
+                {selectedSection.stages.map((stage, i) => (
+                  <div
+                    key={`${selectedSection.id}-stage-${i}-${selectedSection.stages.length}`}
+                    className="flex flex-col gap-1.5 rounded-md border border-neutral-200 p-2 dark:border-neutral-700"
+                  >
+                    <div className="flex items-center gap-1.5">
+                      <input
+                        type="text"
+                        defaultValue={stage.name}
+                        onBlur={(e) => updateStage(i, "name", e.target.value)}
+                        placeholder={`Stage ${i + 1}`}
+                        className="min-w-0 flex-1 rounded border border-neutral-300 px-2 py-1 text-xs outline-none focus:border-neutral-900 dark:border-neutral-700 dark:bg-neutral-800"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => removeStage(i)}
+                        title="Remove stage"
+                        className="rounded border border-neutral-300 px-1.5 text-xs text-neutral-500 hover:bg-neutral-100 dark:border-neutral-700 dark:hover:bg-neutral-800"
+                      >
+                        ×
+                      </button>
+                    </div>
+                    <div className="grid grid-cols-3 gap-1.5">
+                      <div>
+                        <label className="mb-0.5 block text-[10px] text-neutral-500">Background</label>
+                        <ColorField
+                          defaultValue={stage.bgColor ?? "#241b35"}
+                          onChange={(v) => updateStage(i, "bgColor", v)}
+                          presets={colorPresets}
+                          onSavePreset={savePreset}
+                          onDeletePreset={deletePreset}
+                        />
+                      </div>
+                      <div>
+                        <label className="mb-0.5 block text-[10px] text-neutral-500">Border</label>
+                        <ColorField
+                          defaultValue={stage.borderColor ?? "#38bdf8"}
+                          onChange={(v) => updateStage(i, "borderColor", v)}
+                          presets={colorPresets}
+                          onSavePreset={savePreset}
+                          onDeletePreset={deletePreset}
+                        />
+                      </div>
+                      <div>
+                        <label className="mb-0.5 block text-[10px] text-neutral-500">Text</label>
+                        <ColorField
+                          defaultValue={stage.textColor ?? "#38bdf8"}
+                          onChange={(v) => updateStage(i, "textColor", v)}
+                          presets={colorPresets}
+                          onSavePreset={savePreset}
+                          onDeletePreset={deletePreset}
+                        />
+                      </div>
+                    </div>
+                  </div>
+                ))}
+                <button
+                  type="button"
+                  onClick={addStage}
+                  className="rounded-md border border-dashed border-neutral-300 px-2 py-1.5 text-xs font-bold text-neutral-500 hover:bg-neutral-100 dark:border-neutral-700 dark:hover:bg-neutral-800"
+                >
+                  + Add stage
+                </button>
+              </div>
             </div>
           </div>
         )}
@@ -1023,7 +1096,7 @@ export function ChecklistDesigner({
                                   section.itemLayout === "GRID" ? "absolute left-1.5 top-1.5" : "order-last ml-auto",
                                 )}
                               >
-                                Stage 0 / {Math.max(1, section.stageLabels.length)}
+                                Stage 0 / {Math.max(1, section.stages.length)}
                               </span>
                             )}
                             {section.itemLayout === "GRID" ? (

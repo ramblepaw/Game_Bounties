@@ -3,9 +3,10 @@ import { db } from "@/lib/db";
 import {
   computeChecklistProgress,
   flattenProgressItems,
-  type ProgressSectionInput,
+  type ProgressItemInput,
 } from "@/lib/checklist-progress";
 import { readUploadedImageAsBase64 } from "@/lib/uploads";
+import { asStages } from "@/lib/stages";
 
 function bySortTitle<T extends { title: string; sortTitle: string | null }>(games: T[]): T[] {
   return [...games].sort((a, b) => (a.sortTitle || a.title).localeCompare(b.sortTitle || b.title));
@@ -22,8 +23,13 @@ export async function listGames() {
   return bySortTitle(games);
 }
 
-export function checklistProgress(checklist: { tabs: { sections: ProgressSectionInput[] }[] }) {
-  const items = flattenProgressItems(checklist.tabs.flatMap((t) => t.sections));
+export function checklistProgress(checklist: {
+  tabs: { sections: { stages: unknown; items: ProgressItemInput[] }[] }[];
+}) {
+  const sections = checklist.tabs
+    .flatMap((t) => t.sections)
+    .map((s) => ({ stageCount: asStages(s.stages).length, items: s.items }));
+  const items = flattenProgressItems(sections);
   return computeChecklistProgress(items);
 }
 
@@ -115,7 +121,7 @@ export async function getChecklistExportData(checklistId: string) {
         textSize: section.textSize,
         fontFamily: section.fontFamily,
         titleBgColor: section.titleBgColor,
-        stageLabels: section.stageLabels,
+        stages: asStages(section.stages),
         items: section.items.map((item) => ({
           title: item.title,
           description: item.description,

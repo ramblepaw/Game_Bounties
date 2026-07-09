@@ -2,6 +2,7 @@ import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { getChecklistDetail, checklistProgress } from "@/server/queries/games";
 import { computeChecklistProgress, flattenProgressItems } from "@/lib/checklist-progress";
+import { asStages } from "@/lib/stages";
 import {
   getActiveSessionFor,
   totalPlaytimeMinutesForChecklist,
@@ -45,10 +46,16 @@ export default async function ChecklistProgressPage({
   const progress = checklistProgress(checklist);
   const tabProgress = checklist.tabs.map((tab) => ({
     tab: tab.title,
-    percent: computeChecklistProgress(flattenProgressItems(tab.sections)).percent,
+    percent: computeChecklistProgress(
+      flattenProgressItems(tab.sections.map((s) => ({ stageCount: asStages(s.stages).length, items: s.items }))),
+    ).percent,
   }));
   const latestCompletion = checklist.completions[0];
   const isRunning = activeIds.has(checklistId);
+  const progressTabs = checklist.tabs.map((tab) => ({
+    ...tab,
+    sections: tab.sections.map((section) => ({ ...section, stages: asStages(section.stages) })),
+  }));
 
   return (
     <div className="flex flex-col gap-6">
@@ -131,7 +138,7 @@ export default async function ChecklistProgressPage({
         )}
 
       <ChecklistViewTabs
-        checklistSlot={<ChecklistProgressView tabs={checklist.tabs} />}
+        checklistSlot={<ChecklistProgressView tabs={progressTabs} />}
         notesSlot={<ChecklistNotesPanel checklistId={checklistId} notes={checklist.notes} />}
         statsSlot={
           <ChecklistStatsPanel

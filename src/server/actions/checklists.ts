@@ -7,6 +7,7 @@ import { getSession } from "@/lib/auth";
 import { db } from "@/lib/db";
 import type { ItemLayout, ImageFit, ItemKind } from "@/generated/prisma/enums";
 import { saveImageFromBase64, uploadKindFromUrl } from "@/lib/uploads";
+import { asStages, type StageDef } from "@/lib/stages";
 
 async function requireSession() {
   const session = await getSession();
@@ -171,7 +172,7 @@ export async function duplicateChecklist(gameId: string, checklistId: string): P
               textSize: section.textSize,
               fontFamily: section.fontFamily,
               titleBgColor: section.titleBgColor,
-              stageLabels: section.stageLabels,
+              stages: section.stages ?? [],
               items: {
                 // Style/content copies over; progress (isComplete/completedAt/
                 // currentCount) intentionally does not -- the duplicate starts fresh.
@@ -220,7 +221,16 @@ const importSectionSchema = z.object({
   textSize: z.number().nullable().optional(),
   fontFamily: z.string().nullable().optional(),
   titleBgColor: z.string().nullable().optional(),
-  stageLabels: z.array(z.string()).default([]),
+  stages: z
+    .array(
+      z.object({
+        name: z.string(),
+        bgColor: z.string().nullable().optional(),
+        borderColor: z.string().nullable().optional(),
+        textColor: z.string().nullable().optional(),
+      }),
+    )
+    .default([]),
   items: z.array(importItemSchema).default([]),
 });
 
@@ -329,7 +339,7 @@ export async function importChecklist(
               textSize: section.textSize ?? null,
               fontFamily: section.fontFamily ?? null,
               titleBgColor: section.titleBgColor ?? null,
-              stageLabels: section.stageLabels,
+              stages: section.stages,
               items: {
                 create: section.items.map((item, itemIndex) => ({
                   title: item.title,
@@ -415,13 +425,16 @@ export async function duplicateTab(tabId: string): Promise<{ id: string }> {
       },
     },
   });
-  const count = await db.checklistTab.count({ where: { checklistId: original.checklistId } });
+  const siblings = await db.checklistTab.findMany({
+    where: { checklistId: original.checklistId },
+    orderBy: { order: "asc" },
+  });
 
   const duplicate = await db.checklistTab.create({
     data: {
       checklistId: original.checklistId,
       title: original.title,
-      order: count,
+      order: siblings.length,
       canvasBgColor: original.canvasBgColor,
       canvasBgImageUrl: original.canvasBgImageUrl,
       bgColor: original.bgColor,
@@ -441,12 +454,19 @@ export async function duplicateTab(tabId: string): Promise<{ id: string }> {
           textSize: section.textSize,
           fontFamily: section.fontFamily,
           titleBgColor: section.titleBgColor,
-          stageLabels: section.stageLabels,
+          stages: section.stages ?? [],
           items: { create: section.items.map((item) => cloneItemFields(item)) },
         })),
       },
     },
   });
+
+  // Slot the duplicate in right after the original instead of leaving it
+  // appended at the end, matching how modules/targets duplicate.
+  const originalIndex = siblings.findIndex((t) => t.id === tabId);
+  const orderedIds = siblings.map((t) => t.id);
+  orderedIds.splice(originalIndex + 1, 0, duplicate.id);
+  await db.$transaction(renumberTabs(orderedIds));
 
   revalidatePath("/", "layout");
   return { id: duplicate.id };
@@ -498,7 +518,7 @@ export type ModuleStyleInput = {
   textSize?: number | null;
   fontFamily?: string | null;
   titleBgColor?: string | null;
-  stageLabels?: string[];
+  stages?: StageDef[];
 };
 
 export async function createSection(tabId: string, afterSectionId?: string): Promise<{ id: string }> {
@@ -539,13 +559,16 @@ export async function duplicateSection(sectionId: string): Promise<{ id: string 
     where: { id: sectionId },
     include: { items: { orderBy: { order: "asc" } } },
   });
-  const count = await db.checklistSection.count({ where: { tabId: original.tabId } });
+  const siblings = await db.checklistSection.findMany({
+    where: { tabId: original.tabId },
+    orderBy: { order: "asc" },
+  });
 
   const duplicate = await db.checklistSection.create({
     data: {
       tabId: original.tabId,
       name: original.name,
-      order: count,
+      order: siblings.length,
       itemLayout: original.itemLayout,
       gridColumns: original.gridColumns,
       span: original.span,
@@ -555,10 +578,17 @@ export async function duplicateSection(sectionId: string): Promise<{ id: string 
       textSize: original.textSize,
       fontFamily: original.fontFamily,
       titleBgColor: original.titleBgColor,
-      stageLabels: original.stageLabels,
+      stages: original.stages ?? [],
       items: { create: original.items.map((item) => cloneItemFields(item)) },
     },
   });
+
+  // Slot the duplicate in right after the original instead of leaving it
+  // appended at the end, matching how targets duplicate.
+  const originalIndex = siblings.findIndex((s) => s.id === sectionId);
+  const orderedIds = siblings.map((s) => s.id);
+  orderedIds.splice(originalIndex + 1, 0, duplicate.id);
+  await db.$transaction(renumberSections(orderedIds));
 
   revalidatePath("/", "layout");
   return { id: duplicate.id };
@@ -681,9 +711,9 @@ export async function setItemStage(itemId: string, stage: number): Promise<void>
   await requireSession();
   const item = await db.checklistItem.findUniqueOrThrow({
     where: { id: itemId },
-    include: { section: { select: { stageLabels: true } } },
+    include: { section: { select: { stages: true } } },
   });
-  const stageCount = item.section.stageLabels.length;
+  const stageCount = asStages(item.section.stages).length;
   const currentCount = Math.max(0, Math.min(Math.floor(stage) || 0, stageCount));
   const wasComplete = item.isComplete;
   const isComplete = stageCount > 0 && currentCount >= stageCount;
@@ -707,6 +737,11 @@ function renumberItems(orderedIds: string[]) {
 /** Bulk-renumber a tab's modules to match `orderedIds`, 0-indexed. */
 function renumberSections(orderedIds: string[]) {
   return orderedIds.map((id, index) => db.checklistSection.update({ where: { id }, data: { order: index } }));
+}
+
+/** Bulk-renumber a checklist's tabs to match `orderedIds`, 0-indexed. */
+function renumberTabs(orderedIds: string[]) {
+  return orderedIds.map((id, index) => db.checklistTab.update({ where: { id }, data: { order: index } }));
 }
 
 /**

@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { toggleItem, setCounterValue, setItemStage } from "@/server/actions/checklists";
 import { resolveBackgroundStyle, isGradient } from "@/lib/background-style";
 import { fontClassForKey } from "@/lib/fonts";
+import { resolveStage, type StageDef } from "@/lib/stages";
 import { cn } from "@/lib/cn";
 
 interface ProgressItem {
@@ -41,7 +42,7 @@ interface ProgressSection {
   textSize: number | null;
   fontFamily: string | null;
   titleBgColor: string | null;
-  stageLabels: string[];
+  stages: StageDef[];
   items: ProgressItem[];
 }
 
@@ -98,18 +99,6 @@ function getGridColsClass(cols: number): string {
   return map[cols] || "grid-cols-2 sm:grid-cols-4";
 }
 
-// Stage 0 always means "not started"; stages 1..N map to the module's own
-// stageLabels, so the palette only needs to cover the reached (>=1) stages.
-const STAGE_COLORS = ["#38bdf8", "#a78bfa", "#facc15", "#34d399", "#f97316", "#f472b6"];
-
-function stageColorFor(stage: number): string {
-  return stage <= 0 ? "#4c1d95" : STAGE_COLORS[(stage - 1) % STAGE_COLORS.length];
-}
-
-function stageLabelFor(stageLabels: string[], stage: number): string {
-  if (stage <= 0) return "Not started";
-  return stageLabels[stage - 1] ?? `Stage ${stage}`;
-}
 
 function CounterControl({
   item,
@@ -213,8 +202,9 @@ function ModuleCard({
               {section.items.map((item) => {
                 const isCounter = item.kind === "COUNTER";
                 const isStage = item.kind === "STAGE";
-                const stageCount = Math.max(1, section.stageLabels.length);
+                const stageCount = Math.max(1, section.stages.length);
                 const currentStage = Math.min(item.currentCount, stageCount);
+                const resolvedStage = resolveStage(section.stages, currentStage);
                 // A dark shading behind the title keeps text legible over a photo or a
                 // plain color, but it also muddies a deliberately-chosen gradient
                 // background -- so only apply it when there isn't one.
@@ -224,7 +214,7 @@ function ModuleCard({
                     key={item.id}
                     role={isCounter ? undefined : isStage ? "button" : "checkbox"}
                     aria-checked={isCounter || isStage ? undefined : item.isComplete}
-                    aria-label={isStage ? stageLabelFor(section.stageLabels, currentStage) : undefined}
+                    aria-label={isStage ? resolvedStage.name : undefined}
                     tabIndex={isCounter ? undefined : 0}
                     onClick={
                       isCounter
@@ -245,8 +235,8 @@ function ModuleCard({
                           }
                     }
                     style={{
-                      borderColor: isStage ? stageColorFor(currentStage) : (item.borderColor ?? "transparent"),
-                      color: item.textColor ?? "#ede9fe",
+                      borderColor: isStage ? resolvedStage.borderColor : (item.borderColor ?? "transparent"),
+                      color: isStage ? resolvedStage.textColor : (item.textColor ?? "#ede9fe"),
                     }}
                     className={cn(
                       "relative isolate overflow-hidden rounded-xl border transition-transform focus:outline-none focus:ring-2 focus:ring-neutral-900",
@@ -261,7 +251,10 @@ function ModuleCard({
                         compositing layer, especially with a diagonal gradient. */}
                     <div
                       className="absolute -inset-px -z-10"
-                      style={resolveBackgroundStyle(item.bgColor, "rgba(139,92,246,0.08)")}
+                      style={resolveBackgroundStyle(
+                        isStage ? (resolvedStage.bgColor ?? item.bgColor) : item.bgColor,
+                        "rgba(139,92,246,0.08)",
+                      )}
                     />
                     {item.url && (
                       <a
@@ -283,9 +276,9 @@ function ModuleCard({
                     {isStage && section.itemLayout === "GRID" && (
                       <span
                         className="absolute left-1.5 top-1.5 z-20 rounded-full bg-black/55 px-2 py-0.5 text-[10px] font-bold"
-                        style={{ color: stageColorFor(currentStage) }}
+                        style={{ color: resolvedStage.borderColor }}
                       >
-                        {stageLabelFor(section.stageLabels, currentStage)}
+                        {resolvedStage.name}
                       </span>
                     )}
                     {section.itemLayout === "GRID" ? (
@@ -368,9 +361,9 @@ function ModuleCard({
                         {isStage && (
                           <span
                             className="order-last ml-auto text-xs font-bold"
-                            style={{ color: stageColorFor(currentStage) }}
+                            style={{ color: resolvedStage.borderColor }}
                           >
-                            {stageLabelFor(section.stageLabels, currentStage)}
+                            {resolvedStage.name}
                           </span>
                         )}
                       </>

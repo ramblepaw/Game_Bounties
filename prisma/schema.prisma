@@ -184,10 +184,11 @@ model ChecklistSection {
   // which is the body behind the items grid.
   titleBgColor String?
 
-  // Ordered milestone names shared by every STAGE-kind item in this module
-  // (e.g. ["Caught", "Research 10", "Perfect"]) -- defined once here rather
-  // than per item, since they're the same across every target in the module.
-  stageLabels String[] @default([])
+  // Ordered milestones shared by every STAGE-kind item in this module (e.g.
+  // Caught / Research 10 / Perfect, each with its own bg/border/text color)
+  // -- defined once here rather than per item, since they're the same
+  // across every target in the module. Shape: StageDef[] from "@/lib/stages".
+  stages Json @default("[]")
 
   items ChecklistItem[]
 

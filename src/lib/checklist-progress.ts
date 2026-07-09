@@ -8,7 +8,7 @@ export type ProgressItemInput = {
 };
 
 export type ProgressSectionInput<T extends ProgressItemInput = ProgressItemInput> = {
-  stageLabels: string[];
+  stageCount: number;
   items: T[];
 };
 
@@ -42,6 +42,6 @@ export function computeChecklistProgress(items: ProgressItemInput[]) {
  */
 export function flattenProgressItems<T extends ProgressItemInput>(sections: ProgressSectionInput<T>[]): T[] {
   return sections.flatMap((s) =>
-    s.items.map((item) => (item.kind === "STAGE" ? { ...item, targetCount: s.stageLabels.length } : item)),
+    s.items.map((item) => (item.kind === "STAGE" ? { ...item, targetCount: s.stageCount } : item)),
   );
 }
