@@ -151,7 +151,10 @@ export async function getGameWithChecklists(gameId: string) {
     where: { id: gameId },
     include: {
       checklists: {
-        orderBy: { order: "asc" },
+        // `createdAt` as a tiebreaker keeps the list stable when two checklists
+        // share the same `order` (e.g. two created back-to-back) -- ties in a
+        // single-key orderBy aren't guaranteed stable across queries.
+        orderBy: [{ order: "asc" }, { createdAt: "asc" }],
         include: { tabs: { include: { sections: { include: { items: true } } } } },
       },
     },

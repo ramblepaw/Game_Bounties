@@ -383,6 +383,15 @@ export async function moveChecklist(checklistId: string, newGameId: string): Pro
   redirect(`/games/${newGameId}/checklists/${checklistId}/edit`);
 }
 
+/** Bulk reorder after a drag-and-drop move of a game's checklists. */
+export async function reorderChecklists(gameId: string, orderedChecklistIds: string[]): Promise<void> {
+  await requireSession();
+  await db.$transaction(
+    orderedChecklistIds.map((id, index) => db.checklist.update({ where: { id }, data: { order: index } })),
+  );
+  revalidatePath(`/games/${gameId}`);
+}
+
 // ---- Color presets ----
 
 export async function createColorPreset(

@@ -7,10 +7,8 @@ import { listActiveChecklistIdsFor } from "@/server/queries/active-checklists";
 import { getSession, getPeerUser } from "@/lib/auth";
 import { getCooldownFor } from "@/lib/cooldown";
 import { formatMinutes } from "@/lib/format";
-import { ProgressBar } from "@/components/checklists/progress-bar";
 import { GameCover } from "@/components/games/game-cover";
-import { RunChecklistButton } from "@/components/checklists/run-checklist-button";
-import { WaiveCooldownButton } from "@/components/checklists/waive-cooldown-button";
+import { ChecklistList, type ChecklistListItem } from "@/components/checklists/checklist-list";
 import { ImportChecklistForm } from "@/components/checklists/import-checklist-form";
 import { Button } from "@/components/ui/button";
 import { deleteGame } from "@/server/actions/games";
@@ -98,61 +96,26 @@ export default async function GameDetailPage({
       {game.checklists.length === 0 ? (
         <p className="text-neutral-500">No checklists yet.</p>
       ) : (
-        <ul className="flex flex-col gap-3">
-          {game.checklists.map((checklist) => {
+        <ChecklistList
+          gameId={gameId}
+          peerDisplayName={peer?.displayName ?? null}
+          checklists={game.checklists.map((checklist): ChecklistListItem => {
             const progress = checklistProgress(checklist);
-            const isActive = activeIds.has(checklist.id);
             const cooldown = cooldowns.get(checklist.id);
-            return (
-              <li
-                key={checklist.id}
-                className="flex flex-col gap-2 rounded-lg border border-violet-200 bg-white p-4 shadow-sm dark:border-violet-800 dark:bg-neutral-900"
-              >
-                <div className="flex items-center justify-between gap-3">
-                  <div className="flex items-center gap-2">
-                    <span className="font-medium text-violet-950 dark:text-violet-100">{checklist.name}</span>
-                    {isActive && (
-                      <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-xs font-medium text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300">
-                        Running
-                      </span>
-                    )}
-                  </div>
-                  <div className="flex items-center gap-2">
-                    {cooldown?.own ? (
-                      <p className="max-w-[10rem] text-xs text-neutral-500">
-                        You can run this again on {cooldown.own.readyAt.toLocaleDateString()}
-                      </p>
-                    ) : cooldown?.peerCooldown ? (
-                      <div className="flex flex-col items-end gap-1">
-                        <p className="max-w-[10rem] text-right text-xs text-neutral-500">
-                          {peer?.displayName} can run this again on{" "}
-                          {cooldown.peerCooldown.readyAt.toLocaleDateString()}
-                        </p>
-                        <WaiveCooldownButton completionId={cooldown.peerCooldown.completionId} />
-                      </div>
-                    ) : (
-                      <RunChecklistButton
-                        checklistId={checklist.id}
-                        href={`/games/${gameId}/checklists/${checklist.id}`}
-                        isActive={isActive}
-                      />
-                    )}
-                    <Link
-                      href={`/games/${gameId}/checklists/${checklist.id}/edit`}
-                      className="text-sm text-neutral-500 hover:text-neutral-900 dark:hover:text-neutral-100"
-                    >
-                      ✎ Edit
-                    </Link>
-                  </div>
-                </div>
-                <ProgressBar percent={progress.percent} />
-                <p className="text-xs text-neutral-500">
-                  {progress.completed} / {progress.total} complete
-                </p>
-              </li>
-            );
+            return {
+              id: checklist.id,
+              name: checklist.name,
+              progressPercent: progress.percent,
+              progressCompleted: progress.completed,
+              progressTotal: progress.total,
+              isActive: activeIds.has(checklist.id),
+              ownCooldownReadyAt: cooldown?.own?.readyAt ?? null,
+              peerCooldown: cooldown?.peerCooldown
+                ? { readyAt: cooldown.peerCooldown.readyAt, completionId: cooldown.peerCooldown.completionId }
+                : null,
+            };
           })}
-        </ul>
+        />
       )}
     </div>
   );
