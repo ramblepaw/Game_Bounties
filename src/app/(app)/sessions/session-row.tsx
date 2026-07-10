@@ -22,9 +22,11 @@ type SessionRowData = {
 export function SessionRow({
   session,
   checklists,
+  showPlayer = true,
 }: {
   session: SessionRowData;
   checklists: ChecklistOption[];
+  showPlayer?: boolean;
 }) {
   const router = useRouter();
   const [editing, setEditing] = useState(false);
@@ -51,7 +53,7 @@ export function SessionRow({
   if (editing) {
     return (
       <tr className="border-b border-neutral-100 dark:border-neutral-800">
-        <td colSpan={6} className="py-2">
+        <td colSpan={showPlayer ? 6 : 5} className="py-2">
           <form action={handleSave} className="flex flex-wrap items-end gap-2">
             <select
               name="checklistId"
@@ -115,7 +117,7 @@ export function SessionRow({
       <td className="py-2">
         {session.checklist.game.title} — {session.checklist.name}
       </td>
-      <td className="py-2">{session.user.displayName}</td>
+      {showPlayer && <td className="py-2">{session.user.displayName}</td>}
       <td className="py-2">{session.startedAt.toLocaleDateString()}</td>
       <td className="py-2">
         {session.durationMinutes != null ? formatMinutes(session.durationMinutes) : "in progress"}

@@ -65,48 +65,72 @@ export async function allUserBadges() {
   });
 }
 
-// Household-wide completion %: since progress is per-user, an item counts as
-// done here if *either* person has finished it, and a counter/stage shows
-// whoever's gotten furthest -- a combined "how far along is this checklist
-// overall" view rather than any one person's individual progress.
-export async function checklistCompletionRates() {
-  const checklists = await db.checklist.findMany({
-    select: {
-      name: true,
-      game: { select: { title: true } },
-      tabs: {
-        select: {
-          sections: {
-            select: {
-              stages: true,
-              items: {
-                select: {
-                  kind: true,
-                  targetCount: true,
-                  progress: { select: { isComplete: true, currentCount: true } },
+export type GameCompletionBreakdown = {
+  gameId: string;
+  gameTitle: string;
+  checklists: {
+    checklistName: string;
+    perUser: { userId: string; displayName: string; percent: number }[];
+  }[];
+};
+
+/** Each player's own completion % per checklist, grouped by game -- the household overview's per-player breakdown. */
+export async function checklistCompletionRatesByGame(): Promise<GameCompletionBreakdown[]> {
+  const [users, checklists] = await Promise.all([
+    db.user.findMany({ select: { id: true, displayName: true }, orderBy: { createdAt: "asc" } }),
+    db.checklist.findMany({
+      select: {
+        name: true,
+        game: { select: { id: true, title: true } },
+        tabs: {
+          select: {
+            sections: {
+              select: {
+                stages: true,
+                items: {
+                  select: {
+                    kind: true,
+                    targetCount: true,
+                    progress: { select: { userId: true, isComplete: true, currentCount: true } },
+                  },
                 },
               },
             },
           },
         },
       },
-    },
-  });
-  return checklists.map((c) => {
-    const sections = c.tabs
-      .flatMap((t) => t.sections)
-      .map((s) => ({
-        stageCount: asStages(s.stages).length,
-        items: s.items.map((item) => ({
-          kind: item.kind,
-          targetCount: item.targetCount,
-          isComplete: item.progress.some((p) => p.isComplete),
-          currentCount: item.progress.reduce((max, p) => Math.max(max, p.currentCount), 0),
-        })),
+    }),
+  ]);
+
+  const byGame = new Map<string, GameCompletionBreakdown>();
+  for (const c of checklists) {
+    const sections = c.tabs.flatMap((t) => t.sections).map((s) => ({
+      stageCount: asStages(s.stages).length,
+      items: s.items,
+    }));
+
+    const perUser = users.map((user) => {
+      const userSections = sections.map((s) => ({
+        stageCount: s.stageCount,
+        items: s.items.map((item) => {
+          const p = item.progress.find((row) => row.userId === user.id);
+          return {
+            kind: item.kind,
+            targetCount: item.targetCount,
+            isComplete: p?.isComplete ?? false,
+            currentCount: p?.currentCount ?? 0,
+          };
+        }),
       }));
-    const items = flattenProgressItems(sections);
-    const { percent } = computeChecklistProgress(items);
-    return { label: `${c.game.title} — ${c.name}`, percent };
-  });
+      const { percent } = computeChecklistProgress(flattenProgressItems(userSections));
+      return { userId: user.id, displayName: user.displayName, percent };
+    });
+
+    const entry = { checklistName: c.name, perUser };
+    const existing = byGame.get(c.game.id);
+    if (existing) existing.checklists.push(entry);
+    else byGame.set(c.game.id, { gameId: c.game.id, gameTitle: c.game.title, checklists: [entry] });
+  }
+  return Array.from(byGame.values());
 }
 

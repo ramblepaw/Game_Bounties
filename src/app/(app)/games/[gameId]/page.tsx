@@ -26,7 +26,7 @@ export default async function GameDetailPage({
   if (!game) notFound();
 
   const [totalMinutes, activeIds, peer] = await Promise.all([
-    totalPlaytimeMinutesForGame(gameId),
+    totalPlaytimeMinutesForGame(gameId, session.userId),
     listActiveChecklistIdsFor(session.userId),
     getPeerUser(),
   ]);
@@ -65,7 +65,7 @@ export default async function GameDetailPage({
           {game.platform && <p className="text-sm text-fuchsia-700 dark:text-fuchsia-400">{game.platform}</p>}
           {game.releaseYear && <p className="text-sm text-neutral-500 dark:text-neutral-400">{game.releaseYear}</p>}
           {game.genres && <p className="text-xs text-neutral-400">{game.genres}</p>}
-          <p className="text-sm text-neutral-500 dark:text-neutral-400">Total playtime: {formatMinutes(totalMinutes)}</p>
+          <p className="text-sm text-neutral-500 dark:text-neutral-400">Your playtime: {formatMinutes(totalMinutes)}</p>
           {game.summary && <p className="max-w-prose text-sm text-neutral-600 dark:text-neutral-300">{game.summary}</p>}
           {game.notes && <p className="max-w-prose text-sm text-neutral-600 dark:text-neutral-300">{game.notes}</p>}
           <div className="flex gap-2">

@@ -9,6 +9,7 @@ import {
   totalPlaytimeMinutesForChecklist,
   sessionCountForChecklist,
   listSessionsForChecklist,
+  playtimeByDayForChecklist,
 } from "@/server/queries/sessions";
 import { listActiveChecklistIdsFor } from "@/server/queries/active-checklists";
 import { estimateCompletionDate } from "@/lib/estimation";
@@ -35,14 +36,16 @@ export default async function ChecklistProgressPage({
   const checklist = await getChecklistDetail(checklistId);
   if (!checklist) notFound();
 
-  const [activeSession, activeIds, totalMinutes, sessionCount, estimate, sessions] = await Promise.all([
-    getActiveSessionFor(session.userId),
-    listActiveChecklistIdsFor(session.userId),
-    totalPlaytimeMinutesForChecklist(checklistId),
-    sessionCountForChecklist(checklistId),
-    estimateCompletionDate(checklistId, session.userId),
-    listSessionsForChecklist(checklistId),
-  ]);
+  const [activeSession, activeIds, totalMinutes, sessionCount, estimate, sessions, playtimeByDay] =
+    await Promise.all([
+      getActiveSessionFor(session.userId),
+      listActiveChecklistIdsFor(session.userId),
+      totalPlaytimeMinutesForChecklist(checklistId, session.userId),
+      sessionCountForChecklist(checklistId, session.userId),
+      estimateCompletionDate(checklistId, session.userId),
+      listSessionsForChecklist(checklistId, session.userId),
+      playtimeByDayForChecklist(checklistId, session.userId),
+    ]);
 
   const itemIds = checklist.tabs.flatMap((t) => t.sections.flatMap((s) => s.items.map((i) => i.id)));
   const itemProgress = await fetchItemProgressMap(session.userId, itemIds);
@@ -159,6 +162,7 @@ export default async function ChecklistProgressPage({
             estimate={estimate}
             sessions={sessions}
             tabProgress={tabProgress}
+            playtimeByDay={playtimeByDay}
           />
         }
       />

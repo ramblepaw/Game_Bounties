@@ -2,6 +2,7 @@ import { formatMinutes } from "@/lib/format";
 import type { CompletionEstimate } from "@/lib/estimation";
 import { ProgressBar } from "@/components/checklists/progress-bar";
 import { TabCompletionTable } from "@/components/stats/tab-completion-table";
+import { ChecklistPlaytimeChart } from "@/components/stats/checklist-playtime-chart";
 import { SessionRow } from "@/app/(app)/sessions/session-row";
 
 type StatsSession = {
@@ -24,6 +25,7 @@ export function ChecklistStatsPanel({
   estimate,
   sessions,
   tabProgress,
+  playtimeByDay,
 }: {
   checklistId: string;
   checklistName: string;
@@ -34,6 +36,7 @@ export function ChecklistStatsPanel({
   estimate: CompletionEstimate;
   sessions: StatsSession[];
   tabProgress: { tab: string; percent: number }[];
+  playtimeByDay: { date: string; minutes: number }[];
 }) {
   const checklists = [{ id: checklistId, name: checklistName, game: { title: gameTitle } }];
 
@@ -42,15 +45,15 @@ export function ChecklistStatsPanel({
       <div className="grid grid-cols-3 gap-3 rounded-lg border border-violet-200 bg-violet-50 p-3 text-center dark:border-violet-800 dark:bg-violet-950/40">
         <div>
           <p className="text-lg font-bold text-violet-900 dark:text-violet-200">{formatMinutes(totalMinutes)}</p>
-          <p className="text-xs text-neutral-500">Playtime</p>
+          <p className="text-xs text-neutral-500">Your playtime</p>
         </div>
         <div>
           <p className="text-lg font-bold text-violet-900 dark:text-violet-200">{sessionCount}</p>
-          <p className="text-xs text-neutral-500">Sessions</p>
+          <p className="text-xs text-neutral-500">Your sessions</p>
         </div>
         <div>
           <p className="text-lg font-bold text-violet-900 dark:text-violet-200">{progress.percent}%</p>
-          <p className="text-xs text-neutral-500">Complete</p>
+          <p className="text-xs text-neutral-500">Your completion</p>
         </div>
       </div>
 
@@ -76,7 +79,12 @@ export function ChecklistStatsPanel({
       )}
 
       <div>
-        <h3 className="mb-2 font-medium text-fuchsia-700 dark:text-fuchsia-400">Session log</h3>
+        <h3 className="mb-2 font-medium text-fuchsia-700 dark:text-fuchsia-400">Your playtime — last 30 days</h3>
+        <ChecklistPlaytimeChart data={playtimeByDay} />
+      </div>
+
+      <div>
+        <h3 className="mb-2 font-medium text-fuchsia-700 dark:text-fuchsia-400">Your session log</h3>
         {sessions.length === 0 ? (
           <p className="text-sm text-neutral-500">No sessions logged for this checklist yet.</p>
         ) : (
@@ -84,7 +92,6 @@ export function ChecklistStatsPanel({
             <thead>
               <tr className="border-b border-violet-200 text-neutral-500 dark:border-violet-800">
                 <th className="py-2 font-medium">Game — Checklist</th>
-                <th className="py-2 font-medium">Player</th>
                 <th className="py-2 font-medium">Date</th>
                 <th className="py-2 font-medium">Duration</th>
                 <th className="py-2 font-medium">Notes</th>
@@ -93,7 +100,7 @@ export function ChecklistStatsPanel({
             </thead>
             <tbody>
               {sessions.map((s) => (
-                <SessionRow key={s.id} session={s} checklists={checklists} />
+                <SessionRow key={s.id} session={s} checklists={checklists} showPlayer={false} />
               ))}
             </tbody>
           </table>
