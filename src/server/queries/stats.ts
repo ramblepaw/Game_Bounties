@@ -25,17 +25,20 @@ export async function playtimePerGame() {
     .sort((a, b) => b.minutes - a.minutes);
 }
 
+// Household-wide activity: each user's own completion of an item is its own
+// event, so this deliberately doesn't filter by user -- two people finishing
+// the same item on different days are two separate points on the chart.
 export async function completionVelocityByDay(days = 30) {
   const since = subDays(new Date(), days);
-  const items = await db.checklistItem.findMany({
+  const rows = await db.checklistItemProgress.findMany({
     where: { isComplete: true, completedAt: { gte: since } },
     select: { completedAt: true },
   });
 
   const counts = new Map<string, number>();
-  for (const item of items) {
-    if (!item.completedAt) continue;
-    const key = formatISO(item.completedAt, { representation: "date" });
+  for (const row of rows) {
+    if (!row.completedAt) continue;
+    const key = formatISO(row.completedAt, { representation: "date" });
     counts.set(key, (counts.get(key) ?? 0) + 1);
   }
 
@@ -62,6 +65,10 @@ export async function allUserBadges() {
   });
 }
 
+// Household-wide completion %: since progress is per-user, an item counts as
+// done here if *either* person has finished it, and a counter/stage shows
+// whoever's gotten furthest -- a combined "how far along is this checklist
+// overall" view rather than any one person's individual progress.
 export async function checklistCompletionRates() {
   const checklists = await db.checklist.findMany({
     select: {
@@ -72,7 +79,13 @@ export async function checklistCompletionRates() {
           sections: {
             select: {
               stages: true,
-              items: { select: { kind: true, isComplete: true, targetCount: true, currentCount: true } },
+              items: {
+                select: {
+                  kind: true,
+                  targetCount: true,
+                  progress: { select: { isComplete: true, currentCount: true } },
+                },
+              },
             },
           },
         },
@@ -82,7 +95,15 @@ export async function checklistCompletionRates() {
   return checklists.map((c) => {
     const sections = c.tabs
       .flatMap((t) => t.sections)
-      .map((s) => ({ stageCount: asStages(s.stages).length, items: s.items }));
+      .map((s) => ({
+        stageCount: asStages(s.stages).length,
+        items: s.items.map((item) => ({
+          kind: item.kind,
+          targetCount: item.targetCount,
+          isComplete: item.progress.some((p) => p.isComplete),
+          currentCount: item.progress.reduce((max, p) => Math.max(max, p.currentCount), 0),
+        })),
+      }));
     const items = flattenProgressItems(sections);
     const { percent } = computeChecklistProgress(items);
     return { label: `${c.game.title} — ${c.name}`, percent };

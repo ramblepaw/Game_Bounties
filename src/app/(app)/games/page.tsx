@@ -1,10 +1,15 @@
 import Link from "next/link";
+import { redirect } from "next/navigation";
 import { listGames, checklistProgress } from "@/server/queries/games";
+import { getSession } from "@/lib/auth";
 import { GameCarousel } from "@/components/games/game-carousel";
 import { Button } from "@/components/ui/button";
 
 export default async function GamesPage() {
-  const games = await listGames();
+  const session = await getSession();
+  if (!session) redirect("/login");
+
+  const games = await listGames(session.userId);
 
   const carouselGames = games.map((game) => {
     const allItems = game.checklists.flatMap((c) => checklistProgress(c));

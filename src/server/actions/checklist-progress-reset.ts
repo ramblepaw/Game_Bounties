@@ -2,16 +2,19 @@ import "server-only";
 import { db } from "@/lib/db";
 
 /**
- * Resets every item under a checklist back to incomplete. Shared by approval
- * (run archived, slate wiped for next time), clearing a rejected run, and
- * stopping a run early — so the relational filter can't drift between call sites.
+ * Resets one user's progress on a checklist back to "not started" -- deletes
+ * their ChecklistItemProgress rows for every item under it, leaving anyone
+ * else's independent progress on the same checklist untouched. Shared by
+ * approval (that run archived, slate wiped for next time), clearing a
+ * rejected run, and stopping a run early, so the relational filter can't
+ * drift between call sites.
  */
 export async function resetChecklistProgress(
   checklistId: string,
-  client: Pick<typeof db, "checklistItem"> = db,
+  userId: string,
+  client: Pick<typeof db, "checklistItemProgress"> = db,
 ): Promise<void> {
-  await client.checklistItem.updateMany({
-    where: { section: { tab: { checklistId } } },
-    data: { isComplete: false, completedAt: null, currentCount: 0 },
+  await client.checklistItemProgress.deleteMany({
+    where: { userId, item: { section: { tab: { checklistId } } } },
   });
 }

@@ -685,55 +685,59 @@ export async function duplicateItem(itemId: string): Promise<{ id: string }> {
 }
 
 export async function toggleItem(itemId: string): Promise<void> {
-  await requireSession();
-  const item = await db.checklistItem.findUniqueOrThrow({ where: { id: itemId } });
-  await db.checklistItem.update({
-    where: { id: itemId },
-    data: {
-      isComplete: !item.isComplete,
-      completedAt: !item.isComplete ? new Date() : null,
-    },
+  const session = await requireSession();
+  const existing = await db.checklistItemProgress.findUnique({
+    where: { userId_itemId: { userId: session.userId, itemId } },
+  });
+  const isComplete = !existing?.isComplete;
+
+  await db.checklistItemProgress.upsert({
+    where: { userId_itemId: { userId: session.userId, itemId } },
+    create: { userId: session.userId, itemId, isComplete, completedAt: isComplete ? new Date() : null },
+    update: { isComplete, completedAt: isComplete ? new Date() : null },
   });
   revalidatePath("/", "layout");
 }
 
 export async function setCounterValue(itemId: string, value: number): Promise<void> {
-  await requireSession();
-  const item = await db.checklistItem.findUniqueOrThrow({ where: { id: itemId } });
+  const session = await requireSession();
+  const [item, existing] = await Promise.all([
+    db.checklistItem.findUniqueOrThrow({ where: { id: itemId }, select: { targetCount: true } }),
+    db.checklistItemProgress.findUnique({ where: { userId_itemId: { userId: session.userId, itemId } } }),
+  ]);
   const currentCount = Math.max(0, Math.floor(value) || 0);
-  const wasComplete = item.isComplete;
+  const wasComplete = existing?.isComplete ?? false;
   const isComplete = item.targetCount != null && currentCount >= item.targetCount;
+  const completedAt = isComplete ? (wasComplete ? (existing?.completedAt ?? new Date()) : new Date()) : null;
 
-  await db.checklistItem.update({
-    where: { id: itemId },
-    data: {
-      currentCount,
-      isComplete,
-      completedAt: isComplete ? (wasComplete ? item.completedAt : new Date()) : null,
-    },
+  await db.checklistItemProgress.upsert({
+    where: { userId_itemId: { userId: session.userId, itemId } },
+    create: { userId: session.userId, itemId, currentCount, isComplete, completedAt },
+    update: { currentCount, isComplete, completedAt },
   });
   revalidatePath("/", "layout");
 }
 
 /** Sets a STAGE item's current stage (0 = not started, up to its module's stage count). */
 export async function setItemStage(itemId: string, stage: number): Promise<void> {
-  await requireSession();
-  const item = await db.checklistItem.findUniqueOrThrow({
-    where: { id: itemId },
-    include: { section: { select: { stages: true } } },
-  });
+  const session = await requireSession();
+  const [item, existing] = await Promise.all([
+    db.checklistItem.findUniqueOrThrow({
+      where: { id: itemId },
+      include: { section: { select: { stages: true } } },
+    }),
+    db.checklistItemProgress.findUnique({ where: { userId_itemId: { userId: session.userId, itemId } } }),
+  ]);
   const stageCount = asStages(item.section.stages).length;
   const currentCount = Math.max(0, Math.min(Math.floor(stage) || 0, stageCount));
-  const wasComplete = item.isComplete;
+  const wasComplete = existing?.isComplete ?? false;
   const isComplete = stageCount > 0 && currentCount >= stageCount;
+  const completedAt = isComplete ? (wasComplete ? (existing?.completedAt ?? new Date()) : new Date()) : null;
 
-  await db.checklistItem.update({
-    where: { id: itemId },
-    data: {
-      currentCount,
-      isComplete,
-      completedAt: isComplete ? (wasComplete ? item.completedAt : new Date()) : null,
-    },
+  await db.checklistItemProgress.upsert({
+    where: { userId_itemId: { userId: session.userId, itemId } },
+    create: { userId: session.userId, itemId, currentCount, isComplete, completedAt },
+    update: { currentCount, isComplete, completedAt },
   });
   revalidatePath("/", "layout");
 }

@@ -7,12 +7,14 @@ import {
 } from "@/lib/checklist-progress";
 import { readUploadedImageAsBase64 } from "@/lib/uploads";
 import { asStages } from "@/lib/stages";
+import { fetchItemProgressMap, withItemProgress } from "@/server/queries/item-progress";
 
 function bySortTitle<T extends { title: string; sortTitle: string | null }>(games: T[]): T[] {
   return [...games].sort((a, b) => (a.sortTitle || a.title).localeCompare(b.sortTitle || b.title));
 }
 
-export async function listGames() {
+/** Games with each checklist's items carrying `userId`'s own progress (for the "your games" overview). */
+export async function listGames(userId: string) {
   const games = await db.game.findMany({
     include: {
       checklists: {
@@ -20,7 +22,27 @@ export async function listGames() {
       },
     },
   });
-  return bySortTitle(games);
+
+  const itemIds = games.flatMap((g) =>
+    g.checklists.flatMap((c) => c.tabs.flatMap((t) => t.sections.flatMap((s) => s.items.map((i) => i.id)))),
+  );
+  const progress = await fetchItemProgressMap(userId, itemIds);
+
+  const withProgress = games.map((game) => ({
+    ...game,
+    checklists: game.checklists.map((checklist) => ({
+      ...checklist,
+      tabs: checklist.tabs.map((tab) => ({
+        ...tab,
+        sections: tab.sections.map((section) => ({
+          ...section,
+          items: withItemProgress(section.items, progress),
+        })),
+      })),
+    })),
+  }));
+
+  return bySortTitle(withProgress);
 }
 
 export function checklistProgress(checklist: {
@@ -146,8 +168,9 @@ export async function getChecklistExportData(checklistId: string) {
   };
 }
 
-export async function getGameWithChecklists(gameId: string) {
-  return db.game.findUnique({
+/** A game with each checklist's items carrying `userId`'s own progress (for that checklist's progress bar). */
+export async function getGameWithChecklists(gameId: string, userId: string) {
+  const game = await db.game.findUnique({
     where: { id: gameId },
     include: {
       checklists: {
@@ -159,6 +182,26 @@ export async function getGameWithChecklists(gameId: string) {
       },
     },
   });
+  if (!game) return null;
+
+  const itemIds = game.checklists.flatMap((c) =>
+    c.tabs.flatMap((t) => t.sections.flatMap((s) => s.items.map((i) => i.id))),
+  );
+  const progress = await fetchItemProgressMap(userId, itemIds);
+
+  return {
+    ...game,
+    checklists: game.checklists.map((checklist) => ({
+      ...checklist,
+      tabs: checklist.tabs.map((tab) => ({
+        ...tab,
+        sections: tab.sections.map((section) => ({
+          ...section,
+          items: withItemProgress(section.items, progress),
+        })),
+      })),
+    })),
+  };
 }
 
 export async function getChecklistDetail(checklistId: string) {

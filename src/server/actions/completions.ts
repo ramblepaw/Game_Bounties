@@ -7,6 +7,7 @@ import { db } from "@/lib/db";
 import { awardBadgeForCompletion } from "@/lib/badges";
 import { DEFAULT_TOKENS_PER_COMPLETION } from "@/lib/token-economy";
 import { resetChecklistProgress } from "@/server/actions/checklist-progress-reset";
+import { fetchItemProgressMap } from "@/server/queries/item-progress";
 
 async function requireSession() {
   const session = await getSession();
@@ -30,7 +31,11 @@ export async function submitForApproval(
   if (!checklist) return { error: "Checklist not found." };
 
   const items = checklist.tabs.flatMap((t) => t.sections.flatMap((s) => s.items));
-  if (items.length === 0 || items.some((i) => !i.isComplete)) {
+  const progress = await fetchItemProgressMap(
+    session.userId,
+    items.map((i) => i.id),
+  );
+  if (items.length === 0 || items.some((i) => !progress.get(i.id)?.isComplete)) {
     return { error: "All items must be checked off before submitting for approval." };
   }
 
@@ -81,7 +86,7 @@ export async function approveCompletion(completionId: string): Promise<void> {
     });
     // The run is archived now — wipe the board and un-run it so the next
     // attempt (after any cooldown) starts fresh.
-    await resetChecklistProgress(completion.checklistId, tx);
+    await resetChecklistProgress(completion.checklistId, completion.completedById, tx);
     await tx.activeChecklist.deleteMany({
       where: { checklistId: completion.checklistId, userId: completion.completedById },
     });
@@ -150,6 +155,6 @@ export async function clearRejectedRun(completionId: string): Promise<void> {
     throw new Error("Only the person who submitted this run can clear it.");
   }
 
-  await resetChecklistProgress(completion.checklistId);
+  await resetChecklistProgress(completion.checklistId, session.userId);
   revalidatePath("/", "layout");
 }

@@ -56,6 +56,7 @@ model User {
   userBadges          UserBadge[]
   gamePurchases       GamePurchase[]        @relation("PurchasedBy")
   activeChecklists    ActiveChecklist[]
+  itemProgress        ChecklistItemProgress[]
 }
 
 model Game {
@@ -221,21 +222,40 @@ model ChecklistItem {
   imagePositionX  Int      @default(50)
   imagePositionY  Int      @default(50)
 
-  // COUNTER items track a running tally (e.g. "collect 1000 coins") instead
-  // of a single toggle; isComplete/completedAt are still the source of truth
-  // everywhere else (progress %, approval gating, stats) and just get derived
-  // from currentCount vs targetCount as the count changes.
+  // COUNTER/STAGE items track a running tally/stage instead of a single
+  // toggle; target/weight config lives here on the item, but the actual
+  // progress (isComplete/completedAt/currentCount) is per-user -- see
+  // ChecklistItemProgress -- since two people can independently run the
+  // same checklist at once.
   kind        ItemKind @default(CHECKBOX)
   targetCount Int?
-  currentCount Int     @default(0)
 
-  isComplete  Boolean   @default(false)
-  completedAt DateTime?
+  progress ChecklistItemProgress[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
   @@index([sectionId])
+}
+
+// One row per (user, item) -- the actual "is this checked off" state. Kept
+// separate from ChecklistItem (which is shared, shared-content) so that two
+// household members each running the same checklist don't share checkmarks.
+model ChecklistItemProgress {
+  id     String        @id @default(cuid())
+  userId String
+  user   User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  itemId String
+  item   ChecklistItem @relation(fields: [itemId], references: [id], onDelete: Cascade)
+
+  isComplete   Boolean   @default(false)
+  completedAt  DateTime?
+  currentCount Int       @default(0)
+
+  updatedAt DateTime @updatedAt
+
+  @@unique([userId, itemId])
+  @@index([itemId])
 }
 
 model ChecklistCompletion {

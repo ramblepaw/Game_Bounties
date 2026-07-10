@@ -3,6 +3,7 @@ import { differenceInCalendarDays, addDays } from "date-fns";
 import { db } from "@/lib/db";
 import { itemWeight, computeChecklistProgress, flattenProgressItems } from "@/lib/checklist-progress";
 import { asStages } from "@/lib/stages";
+import { fetchItemProgressMap, withItemProgress } from "@/server/queries/item-progress";
 
 export type CompletionEstimate = {
   projectedDate: Date | null;
@@ -14,7 +15,7 @@ const WINDOW_DAYS = 14;
 const MIN_COMPLETED_ITEMS = 3;
 const MIN_DISTINCT_DAYS = 2;
 
-export async function estimateCompletionDate(checklistId: string): Promise<CompletionEstimate> {
+export async function estimateCompletionDate(checklistId: string, userId: string): Promise<CompletionEstimate> {
   const checklist = await db.checklist.findUnique({
     where: { id: checklistId },
     select: {
@@ -24,9 +25,7 @@ export async function estimateCompletionDate(checklistId: string): Promise<Compl
           sections: {
             select: {
               stages: true,
-              items: {
-                select: { kind: true, isComplete: true, completedAt: true, targetCount: true, currentCount: true },
-              },
+              items: { select: { id: true, kind: true, targetCount: true } },
             },
           },
         },
@@ -35,9 +34,11 @@ export async function estimateCompletionDate(checklistId: string): Promise<Compl
   });
   if (!checklist) return { projectedDate: null, velocityPerDay: null, confidence: "none" };
 
+  const allItemIds = checklist.tabs.flatMap((t) => t.sections.flatMap((s) => s.items.map((i) => i.id)));
+  const progress = await fetchItemProgressMap(userId, allItemIds);
   const sections = checklist.tabs
     .flatMap((t) => t.sections)
-    .map((s) => ({ stageCount: asStages(s.stages).length, items: s.items }));
+    .map((s) => ({ stageCount: asStages(s.stages).length, items: withItemProgress(s.items, progress) }));
   const items = flattenProgressItems(sections);
   const { total, completed } = computeChecklistProgress(items);
   const remaining = total - completed;

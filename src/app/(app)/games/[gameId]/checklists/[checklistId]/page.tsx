@@ -3,6 +3,7 @@ import { notFound, redirect } from "next/navigation";
 import { getChecklistDetail, checklistProgress } from "@/server/queries/games";
 import { computeChecklistProgress, flattenProgressItems } from "@/lib/checklist-progress";
 import { asStages } from "@/lib/stages";
+import { fetchItemProgressMap, withItemProgress } from "@/server/queries/item-progress";
 import {
   getActiveSessionFor,
   totalPlaytimeMinutesForChecklist,
@@ -39,12 +40,23 @@ export default async function ChecklistProgressPage({
     listActiveChecklistIdsFor(session.userId),
     totalPlaytimeMinutesForChecklist(checklistId),
     sessionCountForChecklist(checklistId),
-    estimateCompletionDate(checklistId),
+    estimateCompletionDate(checklistId, session.userId),
     listSessionsForChecklist(checklistId),
   ]);
 
-  const progress = checklistProgress(checklist);
-  const tabProgress = checklist.tabs.map((tab) => ({
+  const itemIds = checklist.tabs.flatMap((t) => t.sections.flatMap((s) => s.items.map((i) => i.id)));
+  const itemProgress = await fetchItemProgressMap(session.userId, itemIds);
+  const progressTabs = checklist.tabs.map((tab) => ({
+    ...tab,
+    sections: tab.sections.map((section) => ({
+      ...section,
+      stages: asStages(section.stages),
+      items: withItemProgress(section.items, itemProgress),
+    })),
+  }));
+
+  const progress = checklistProgress({ tabs: progressTabs });
+  const tabProgress = progressTabs.map((tab) => ({
     tab: tab.title,
     percent: computeChecklistProgress(
       flattenProgressItems(tab.sections.map((s) => ({ stageCount: asStages(s.stages).length, items: s.items }))),
@@ -52,10 +64,6 @@ export default async function ChecklistProgressPage({
   }));
   const latestCompletion = checklist.completions[0];
   const isRunning = activeIds.has(checklistId);
-  const progressTabs = checklist.tabs.map((tab) => ({
-    ...tab,
-    sections: tab.sections.map((section) => ({ ...section, stages: asStages(section.stages) })),
-  }));
 
   return (
     <div className="flex flex-col gap-6">

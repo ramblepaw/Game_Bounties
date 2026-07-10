@@ -60,8 +60,6 @@ interface DesignerItem {
   imagePositionY: number;
   kind: ItemKindMode;
   targetCount: number | null;
-  currentCount: number;
-  isComplete: boolean;
 }
 
 interface DesignerSection {

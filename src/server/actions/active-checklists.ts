@@ -67,7 +67,7 @@ export async function activateChecklist(checklistId: string): Promise<ActivateRe
 /** Stops a run. Erases any progress on the checklist — the UI must confirm this first. */
 export async function deactivateChecklist(checklistId: string): Promise<void> {
   const session = await requireSession();
-  await resetChecklistProgress(checklistId);
+  await resetChecklistProgress(checklistId, session.userId);
   await db.activeChecklist.deleteMany({ where: { userId: session.userId, checklistId } });
   revalidatePath("/", "layout");
 }

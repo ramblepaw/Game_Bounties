@@ -22,7 +22,7 @@ export default async function GameDetailPage({
   const session = await getSession();
   if (!session) redirect("/login");
 
-  const game = await getGameWithChecklists(gameId);
+  const game = await getGameWithChecklists(gameId, session.userId);
   if (!game) notFound();
 
   const [totalMinutes, activeIds, peer] = await Promise.all([
