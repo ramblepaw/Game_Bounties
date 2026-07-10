@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button";
 
 const SPIN_STEP_MS = 90;
 const SWIPE_THRESHOLD_PX = 40;
+const WHEEL_THRESHOLD = 50;
 
 type CarouselGame = {
   id: string;
@@ -50,6 +51,9 @@ export function GameCarousel({ games }: { games: CarouselGame[] }) {
   const [notFound, setNotFound] = useState(false);
   const spinIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const touchStartXRef = useRef<number | null>(null);
+  const wheelAccumRef = useRef(0);
+  const [dragOffsetPx, setDragOffsetPx] = useState(0);
+  const [isDragging, setIsDragging] = useState(false);
   const n = games.length;
 
   useEffect(() => {
@@ -84,14 +88,36 @@ export function GameCarousel({ games }: { games: CarouselGame[] }) {
 
   function handleTouchStart(e: React.TouchEvent) {
     touchStartXRef.current = e.touches[0].clientX;
+    setDragOffsetPx(0);
+    setIsDragging(true);
+  }
+
+  function handleTouchMove(e: React.TouchEvent) {
+    if (touchStartXRef.current === null) return;
+    setDragOffsetPx(e.touches[0].clientX - touchStartXRef.current);
   }
 
   function handleTouchEnd(e: React.TouchEvent) {
     if (touchStartXRef.current === null) return;
     const deltaX = e.changedTouches[0].clientX - touchStartXRef.current;
     touchStartXRef.current = null;
+    setDragOffsetPx(0);
+    setIsDragging(false);
     if (deltaX > SWIPE_THRESHOLD_PX) prev();
     else if (deltaX < -SWIPE_THRESHOLD_PX) next();
+  }
+
+  function handleWheel(e: React.WheelEvent) {
+    e.preventDefault();
+    const delta = Math.abs(e.deltaY) > Math.abs(e.deltaX) ? e.deltaY : e.deltaX;
+    wheelAccumRef.current += delta;
+    if (wheelAccumRef.current > WHEEL_THRESHOLD) {
+      next();
+      wheelAccumRef.current = 0;
+    } else if (wheelAccumRef.current < -WHEEL_THRESHOLD) {
+      prev();
+      wheelAccumRef.current = 0;
+    }
   }
 
   function handleSearchSubmit(e: React.FormEvent) {
@@ -129,9 +155,11 @@ export function GameCarousel({ games }: { games: CarouselGame[] }) {
 
       <div
         className="relative w-full"
-        style={{ height: CARD_HEIGHT + 60, perspective: "1600px" }}
+        style={{ height: CARD_HEIGHT + 60, perspective: "1600px", touchAction: "pan-y" }}
         onTouchStart={handleTouchStart}
+        onTouchMove={handleTouchMove}
         onTouchEnd={handleTouchEnd}
+        onWheel={handleWheel}
       >
         <div
           className="absolute left-1/2 top-1/2"
@@ -144,11 +172,16 @@ export function GameCarousel({ games }: { games: CarouselGame[] }) {
           }}
         >
           {games.map((game, i) => {
-            const offset = ringOffset(i, index, n);
+            const staticOffset = ringOffset(i, index, n);
+            const isFront = staticOffset === 0;
+            // While a touch drag is in progress, blend the ring position
+            // toward the neighbor being dragged toward so cards visually
+            // track the finger instead of only snapping at touchend.
+            const dragProgress = Math.max(-1, Math.min(1, -dragOffsetPx / CARD_WIDTH));
+            const offset = staticOffset - dragProgress;
             const mag = Math.abs(offset);
             if (mag > MAX_VISIBLE) return null;
 
-            const isFront = offset === 0;
             const sign = Math.sign(offset);
             const x = sign === 0 ? 0 : sign * (X_BASE_GAP + (mag - 1) * X_STEP_GAP);
             const z = -mag * Z_STEP;
@@ -167,12 +200,14 @@ export function GameCarousel({ games }: { games: CarouselGame[] }) {
                   if (isFront) router.push(`/games/${game.id}`);
                   else setIndex(i);
                 }}
-                className="absolute inset-0 flex cursor-pointer flex-col gap-2 rounded-xl border border-violet-200 bg-white p-3 shadow-xl transition-transform duration-500 ease-out [backface-visibility:hidden] dark:border-violet-800 dark:bg-neutral-900"
+                className="absolute inset-0 flex cursor-pointer flex-col gap-2 rounded-xl border border-violet-200 bg-white p-3 shadow-xl [backface-visibility:hidden] dark:border-violet-800 dark:bg-neutral-900"
                 style={{
                   transform: `translateX(${x}px) translateZ(${z}px) rotateY(${rotate}deg) scale(${scale})`,
                   opacity,
-                  zIndex: MAX_VISIBLE - mag,
+                  zIndex: MAX_VISIBLE - Math.round(mag),
                   transitionProperty: "transform, opacity",
+                  transitionDuration: isDragging ? "0ms" : "500ms",
+                  transitionTimingFunction: "ease-out",
                 }}
               >
                 <div className="relative aspect-[3/4] w-full overflow-hidden rounded-lg bg-violet-100 dark:bg-violet-950">

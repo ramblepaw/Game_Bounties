@@ -24,6 +24,17 @@
   --font-mono: var(--font-geist-mono);
 }
 
+html,
+body {
+  /* The game carousel deliberately positions its tilted side-cards outside
+     its own box (that's the coverflow effect) -- without this, those cards
+     widen the page's real scrollable area instead of just being visually
+     clipped, letting the whole page pan sideways on touch devices.
+     (Not `overflow-x: clip` -- this build's CSS pipeline silently drops
+     that value at compile time.) */
+  overflow-x: hidden;
+}
+
 body {
   background: var(--background);
   color: var(--foreground);
