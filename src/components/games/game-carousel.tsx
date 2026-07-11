@@ -10,6 +10,16 @@ import { Button } from "@/components/ui/button";
 const SPIN_STEP_MS = 90;
 const SWIPE_THRESHOLD_PX = 40;
 const WHEEL_THRESHOLD = 50;
+// Caps how many steps a single scroll gesture can stack up. Without a cap, a
+// long fast flick (or a trackpad's momentum tail continuing to fire events
+// after the physical scroll stops) could queue up an unbounded backlog that
+// takes a long time to drain, making the carousel feel like it keeps
+// scrolling on its own with no way to stop it. Capping it means the queue
+// always empties within WHEEL_QUEUE_CAP * SPIN_STEP_MS of the last real
+// wheel event, while still letting a sustained fast scroll move through many
+// games quickly (the queue keeps refilling as long as real input keeps
+// crossing the threshold).
+const WHEEL_QUEUE_CAP = 6;
 
 type CarouselGame = {
   id: string;
@@ -52,13 +62,18 @@ export function GameCarousel({ games }: { games: CarouselGame[] }) {
   const spinIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const touchStartXRef = useRef<number | null>(null);
   const wheelAccumRef = useRef(0);
+  const wheelQueueRef = useRef(0);
+  const wheelIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const lastWheelTimestampRef = useRef<number | null>(null);
   const [dragOffsetPx, setDragOffsetPx] = useState(0);
   const [isDragging, setIsDragging] = useState(false);
+  const [isWheeling, setIsWheeling] = useState(false);
   const n = games.length;
 
   useEffect(() => {
     return () => {
       if (spinIntervalRef.current) clearInterval(spinIntervalRef.current);
+      if (wheelIntervalRef.current) clearInterval(wheelIntervalRef.current);
     };
   }, []);
 
@@ -107,17 +122,49 @@ export function GameCarousel({ games }: { games: CarouselGame[] }) {
     else if (deltaX < -SWIPE_THRESHOLD_PX) next();
   }
 
+  function drainWheelQueue() {
+    if (wheelIntervalRef.current) return;
+    setIsWheeling(true);
+    wheelIntervalRef.current = setInterval(() => {
+      if (wheelQueueRef.current > 0) {
+        next();
+        wheelQueueRef.current -= 1;
+      } else if (wheelQueueRef.current < 0) {
+        prev();
+        wheelQueueRef.current += 1;
+      }
+      if (wheelQueueRef.current === 0 && wheelIntervalRef.current) {
+        clearInterval(wheelIntervalRef.current);
+        wheelIntervalRef.current = null;
+        setIsWheeling(false);
+      }
+    }, SPIN_STEP_MS);
+  }
+
   function handleWheel(e: React.WheelEvent) {
     e.preventDefault();
+    // This dev build's wheel-event dispatch delivers each native wheel event
+    // to this handler twice (same timeStamp, two separate SyntheticEvent
+    // wrappers) -- every scroll tick was silently counted twice, which is
+    // what made the queue balloon out of control. Drop the repeat.
+    if (e.timeStamp === lastWheelTimestampRef.current) return;
+    lastWheelTimestampRef.current = e.timeStamp;
     const delta = Math.abs(e.deltaY) > Math.abs(e.deltaX) ? e.deltaY : e.deltaX;
     wheelAccumRef.current += delta;
+    // A single physical notch commonly reports a deltaY of ~100-120, which is
+    // more than double WHEEL_THRESHOLD -- dividing that one event's magnitude
+    // across multiple threshold crossings (the previous `while` loop) queued
+    // 2 steps for what the user felt as 1 notch. Cap each event to at most one
+    // queued step; a sustained scroll still queues more because it keeps
+    // producing more events, not because any single event is worth more.
     if (wheelAccumRef.current > WHEEL_THRESHOLD) {
-      next();
+      wheelQueueRef.current = Math.min(WHEEL_QUEUE_CAP, wheelQueueRef.current + 1);
       wheelAccumRef.current = 0;
     } else if (wheelAccumRef.current < -WHEEL_THRESHOLD) {
-      prev();
+      wheelQueueRef.current = Math.max(-WHEEL_QUEUE_CAP, wheelQueueRef.current - 1);
       wheelAccumRef.current = 0;
     }
+    if (wheelQueueRef.current !== 0) drainWheelQueue();
   }
 
   function handleSearchSubmit(e: React.FormEvent) {
@@ -206,7 +253,14 @@ export function GameCarousel({ games }: { games: CarouselGame[] }) {
                   opacity,
                   zIndex: MAX_VISIBLE - Math.round(mag),
                   transitionProperty: "transform, opacity",
-                  transitionDuration: isDragging ? "0ms" : "500ms",
+                  // While actively draining queued wheel steps, each step's
+                  // 500ms transition would still be interrupted by the next
+                  // one every SPIN_STEP_MS -- the "front" label snaps to the
+                  // new card instantly (isFront is a plain boolean) while its
+                  // card visually keeps chasing the center, which reads as
+                  // off-center. Match the transition to the step cadence so
+                  // each card actually arrives before the next step starts.
+                  transitionDuration: isDragging ? "0ms" : isWheeling ? `${SPIN_STEP_MS}ms` : "500ms",
                   transitionTimingFunction: "ease-out",
                 }}
               >
