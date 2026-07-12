@@ -27,7 +27,12 @@ export default async function GamesPage() {
   });
 
   return (
-    <div className="flex flex-col gap-6">
+    // overflow-x-hidden is scoped to this page (not html/body -- see globals.css
+    // history) because setting it on a shared ancestor forces overflow-y to
+    // compute as "auto" too (CSS spec), which turns that ancestor into its own
+    // scroll container and breaks `position: sticky` on other pages, like the
+    // checklist designer's properties panel.
+    <div className="flex flex-col gap-6 overflow-x-hidden">
       <div className="flex items-center justify-between">
         <h1 className="text-lg font-bold text-violet-950 dark:text-violet-100">Your games</h1>
         <Link href="/games/new">
