@@ -44,6 +44,39 @@ export function ImagePicker({
     }
   }
 
+  async function handleUrlBlur(e: React.FocusEvent<HTMLInputElement>) {
+    const next = e.target.value;
+    if (next === value) return;
+
+    // Already one of our own hosted paths (or cleared) -- nothing to fetch.
+    if (!next || !/^https?:\/\//i.test(next)) {
+      onChange(next);
+      return;
+    }
+
+    // A pasted external URL is downloaded once and re-hosted through the
+    // upload pipeline instead of kept as a live hotlink -- otherwise it can
+    // break later if the source expires (e.g. Discord's signed CDN links) or
+    // hotlink-blocks us, and it can't be bundled into a checklist export.
+    setUploading(true);
+    setError(null);
+    try {
+      const formData = new FormData();
+      formData.set("url", next);
+      formData.set("kind", kind);
+      const res = await fetch("/api/uploads", { method: "POST", body: formData });
+      const body = await res.json();
+      if (!res.ok) throw new Error(body.error ?? "Couldn't fetch that image.");
+      const url = body.url as string;
+      if (textInputRef.current) textInputRef.current.value = url;
+      onChange(url);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Couldn't fetch that image.");
+    } finally {
+      setUploading(false);
+    }
+  }
+
   return (
     <div>
       <label className="mb-1 block text-xs text-neutral-400">{label}</label>
@@ -52,11 +85,10 @@ export function ImagePicker({
           ref={textInputRef}
           type="text"
           defaultValue={value || ""}
-          onBlur={(e) => {
-            if (e.target.value !== value) onChange(e.target.value);
-          }}
+          onBlur={handleUrlBlur}
+          disabled={uploading}
           placeholder="https://…"
-          className="flex-1 rounded-lg border border-neutral-700 bg-neutral-900 px-3 py-2 text-sm text-white outline-none"
+          className="flex-1 rounded-lg border border-neutral-700 bg-neutral-900 px-3 py-2 text-sm text-white outline-none disabled:opacity-60"
         />
         <label className="flex cursor-pointer items-center justify-center rounded-lg border border-neutral-700 bg-neutral-800 px-3 py-2 text-sm text-white shadow-sm transition-colors hover:bg-neutral-700">
           {uploading ? "…" : "📁"}

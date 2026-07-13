@@ -74,7 +74,12 @@ export function NewGameForm() {
                 >
                   {r.coverImageUrl ? (
                     // eslint-disable-next-line @next/next/no-img-element
-                    <img src={r.coverImageUrl} alt="" className="h-12 w-9 shrink-0 rounded object-cover" />
+                    <img
+                      src={r.coverImageUrl}
+                      alt=""
+                      referrerPolicy="no-referrer"
+                      className="h-12 w-9 shrink-0 rounded object-cover"
+                    />
                   ) : (
                     <div className="h-12 w-9 shrink-0 rounded bg-neutral-200 dark:bg-neutral-700" />
                   )}

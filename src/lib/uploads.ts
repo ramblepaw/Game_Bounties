@@ -52,7 +52,16 @@ export async function saveUploadedImage(file: File, kind: UploadKind): Promise<s
 
 /** Downloads an external image (e.g. an IGDB cover) and stores it through the same pipeline. */
 export async function saveImageFromUrl(url: string, kind: UploadKind): Promise<string> {
-  const res = await fetch(url);
+  let res: Response;
+  try {
+    res = await fetch(url);
+  } catch {
+    // A network-level failure (bad URL, DNS, connection refused) throws here
+    // rather than producing a response -- without this catch it propagates
+    // as an unhandled exception, and the route handler returns Next's raw
+    // HTML error page instead of JSON, which the client can't parse.
+    throw new UploadValidationError("Couldn't reach that URL.");
+  }
   if (!res.ok) {
     throw new UploadValidationError(`Failed to download image (${res.status}).`);
   }

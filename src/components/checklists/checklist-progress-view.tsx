@@ -290,6 +290,7 @@ function ModuleCard({
                               <img
                                 src={item.imageUrl}
                                 alt=""
+                                referrerPolicy="no-referrer"
                                 style={{
                                   imageRendering: item.pixelatedImage ? "pixelated" : "auto",
                                   objectFit: item.imageFit === "COVER" ? "cover" : "contain",
@@ -333,6 +334,7 @@ function ModuleCard({
                             <img
                               src={item.imageUrl}
                               alt=""
+                              referrerPolicy="no-referrer"
                               style={{ imageRendering: item.pixelatedImage ? "pixelated" : "auto" }}
                               className="h-full w-full object-cover"
                             />
