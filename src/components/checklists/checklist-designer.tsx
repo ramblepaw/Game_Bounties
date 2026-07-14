@@ -100,9 +100,11 @@ interface DesignerNotesModule {
   id: string;
   title: string | null;
   order: number;
+  span: number;
   bgColor: string | null;
   textColor: string | null;
   borderColor: string | null;
+  titleBgColor: string | null;
   body: string | null;
 }
 
@@ -989,7 +991,7 @@ export function ChecklistDesigner({
       </div>
 
       {editorMode === "notes" ? (
-        <div className="flex flex-col gap-3">
+        <div className="grid auto-rows-min grid-cols-4 gap-4">
           {checklist.notesModules.map((module_) => (
             <div
               key={module_.id}
@@ -1002,9 +1004,12 @@ export function ChecklistDesigner({
                 borderColor: module_.borderColor ?? "#4c1d95",
                 color: module_.textColor ?? "#ede9fe",
               }}
-              className="flex flex-col gap-3 rounded-xl border-2 p-4"
+              className={cn("flex flex-col overflow-hidden rounded-xl border-2", getColSpanClass(module_.span))}
             >
-              <div className="flex items-center gap-2">
+              <div
+                style={resolveBackgroundStyle(module_.titleBgColor, "#1e1830")}
+                className="flex items-center gap-2 border-b border-white/10 p-3"
+              >
                 <span className="cursor-grab text-neutral-400" title="Drag to reorder">
                   ⋮⋮
                 </span>
@@ -1024,57 +1029,90 @@ export function ChecklistDesigner({
                 </button>
               </div>
 
-              <div className="grid grid-cols-1 gap-3 rounded-lg bg-black/10 p-3 sm:grid-cols-3">
+              <div className="flex flex-col gap-3 p-4">
                 <div>
-                  <label className="mb-1 block text-xs opacity-70">Background</label>
-                  <GradientColorPicker
-                    key={`${module_.id}-bg`}
-                    value={module_.bgColor}
-                    fallback="#241b35"
-                    onChange={(value) => updateNotesModuleData(module_.id, "bgColor", value)}
-                    presets={colorPresets}
-                    onSavePreset={savePreset}
-                    onDeletePreset={deletePreset}
-                  />
+                  <label className="mb-2 block text-xs font-bold opacity-70">Module width</label>
+                  <div className="grid grid-cols-4 gap-1 rounded-lg bg-black/10 p-1">
+                    {SPANS.map((span) => (
+                      <button
+                        key={span}
+                        type="button"
+                        onClick={() => updateNotesModuleData(module_.id, "span", span)}
+                        className={cn(
+                          "rounded py-1 text-xs font-bold",
+                          module_.span === span ? "bg-white text-neutral-900 shadow" : "opacity-70",
+                        )}
+                      >
+                        {span * 25}%
+                      </button>
+                    ))}
+                  </div>
                 </div>
-                <div className="flex items-center justify-between">
-                  <label className="text-xs opacity-70">Text color</label>
-                  <ColorField
-                    key={`${module_.id}-text`}
-                    defaultValue={module_.textColor ?? "#ede9fe"}
-                    onChange={(color) => updateNotesModuleData(module_.id, "textColor", color)}
-                    presets={colorPresets}
-                    onSavePreset={savePreset}
-                    onDeletePreset={deletePreset}
-                  />
-                </div>
-                <div className="flex items-center justify-between">
-                  <label className="text-xs opacity-70">Border color</label>
-                  <ColorField
-                    key={`${module_.id}-border`}
-                    defaultValue={module_.borderColor ?? "#5b21b6"}
-                    onChange={(color) => updateNotesModuleData(module_.id, "borderColor", color)}
-                    presets={colorPresets}
-                    onSavePreset={savePreset}
-                    onDeletePreset={deletePreset}
-                  />
-                </div>
-              </div>
 
-              <textarea
-                key={`${module_.id}-body`}
-                defaultValue={module_.body ?? ""}
-                onBlur={(e) => updateNotesModuleData(module_.id, "body", e.target.value || null)}
-                rows={6}
-                placeholder="Rules, reminders, anything you want written down for this checklist..."
-                className="w-full resize-y rounded-md border border-white/20 bg-black/20 px-3 py-2 text-sm outline-none focus:border-white/50"
-              />
+                <div className="grid grid-cols-1 gap-3 rounded-lg bg-black/10 p-3 sm:grid-cols-2">
+                  <div>
+                    <label className="mb-1 block text-xs opacity-70">Title background</label>
+                    <GradientColorPicker
+                      key={`${module_.id}-titlebg`}
+                      value={module_.titleBgColor}
+                      fallback="#1e1830"
+                      onChange={(value) => updateNotesModuleData(module_.id, "titleBgColor", value)}
+                      presets={colorPresets}
+                      onSavePreset={savePreset}
+                      onDeletePreset={deletePreset}
+                    />
+                  </div>
+                  <div>
+                    <label className="mb-1 block text-xs opacity-70">Background</label>
+                    <GradientColorPicker
+                      key={`${module_.id}-bg`}
+                      value={module_.bgColor}
+                      fallback="#241b35"
+                      onChange={(value) => updateNotesModuleData(module_.id, "bgColor", value)}
+                      presets={colorPresets}
+                      onSavePreset={savePreset}
+                      onDeletePreset={deletePreset}
+                    />
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <label className="text-xs opacity-70">Text color</label>
+                    <ColorField
+                      key={`${module_.id}-text`}
+                      defaultValue={module_.textColor ?? "#ede9fe"}
+                      onChange={(color) => updateNotesModuleData(module_.id, "textColor", color)}
+                      presets={colorPresets}
+                      onSavePreset={savePreset}
+                      onDeletePreset={deletePreset}
+                    />
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <label className="text-xs opacity-70">Border color</label>
+                    <ColorField
+                      key={`${module_.id}-border`}
+                      defaultValue={module_.borderColor ?? "#5b21b6"}
+                      onChange={(color) => updateNotesModuleData(module_.id, "borderColor", color)}
+                      presets={colorPresets}
+                      onSavePreset={savePreset}
+                      onDeletePreset={deletePreset}
+                    />
+                  </div>
+                </div>
+
+                <textarea
+                  key={`${module_.id}-body`}
+                  defaultValue={module_.body ?? ""}
+                  onBlur={(e) => updateNotesModuleData(module_.id, "body", e.target.value || null)}
+                  rows={6}
+                  placeholder="Rules, reminders, anything you want written down for this checklist..."
+                  className="w-full resize-y rounded-md border border-white/20 bg-black/20 px-3 py-2 text-sm outline-none focus:border-white/50"
+                />
+              </div>
             </div>
           ))}
           <button
             type="button"
             onClick={addNotesModule}
-            className="rounded-lg border border-dashed border-neutral-300 px-4 py-3 text-sm font-bold text-neutral-500 hover:bg-neutral-100 dark:border-neutral-700 dark:hover:bg-neutral-800"
+            className="col-span-4 rounded-lg border border-dashed border-neutral-300 px-4 py-3 text-sm font-bold text-neutral-500 hover:bg-neutral-100 dark:border-neutral-700 dark:hover:bg-neutral-800"
           >
             + Add Module
           </button>

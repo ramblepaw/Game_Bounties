@@ -122,11 +122,15 @@ model ChecklistNotesModule {
   checklist   Checklist @relation(fields: [checklistId], references: [id], onDelete: Cascade)
   title       String?
   order       Int       @default(0)
+  span        Int       @default(4)
 
   bgColor     String?
   textColor   String?
   borderColor String?
-  body        String?
+  // Background of the title strip only -- distinct from `bgColor`, which is
+  // the body behind the text. Same split as ChecklistSection.titleBgColor.
+  titleBgColor String?
+  body         String?
 
   @@index([checklistId])
 }

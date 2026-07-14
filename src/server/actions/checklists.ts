@@ -153,9 +153,11 @@ export async function duplicateChecklist(gameId: string, checklistId: string): P
         create: original.notesModules.map((m) => ({
           title: m.title,
           order: m.order,
+          span: m.span,
           bgColor: m.bgColor,
           textColor: m.textColor,
           borderColor: m.borderColor,
+          titleBgColor: m.titleBgColor,
           body: m.body,
         })),
       },
@@ -259,9 +261,11 @@ const importTabSchema = z.object({
 const importNotesModuleSchema = z.object({
   title: z.string().nullable().optional(),
   order: z.number().optional(),
+  span: z.number().optional(),
   bgColor: z.string().nullable().optional(),
   textColor: z.string().nullable().optional(),
   borderColor: z.string().nullable().optional(),
+  titleBgColor: z.string().nullable().optional(),
   body: z.string().nullable().optional(),
 });
 
@@ -338,9 +342,11 @@ export async function importChecklist(
         create: data.notesModules.map((m, index) => ({
           title: m.title ?? null,
           order: m.order ?? index,
+          span: m.span ?? 4,
           bgColor: m.bgColor ?? null,
           textColor: m.textColor ?? null,
           borderColor: m.borderColor ?? null,
+          titleBgColor: m.titleBgColor ?? null,
           body: m.body ?? null,
         })),
       },
@@ -424,9 +430,11 @@ export async function reorderChecklists(gameId: string, orderedChecklistIds: str
 
 export type NotesModuleStyleInput = {
   title?: string | null;
+  span?: number;
   bgColor?: string | null;
   textColor?: string | null;
   borderColor?: string | null;
+  titleBgColor?: string | null;
   body?: string | null;
 };
 

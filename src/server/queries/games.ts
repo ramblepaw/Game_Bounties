@@ -120,9 +120,11 @@ export async function getChecklistExportData(checklistId: string) {
     notesModules: checklist.notesModules.map((m) => ({
       title: m.title,
       order: m.order,
+      span: m.span,
       bgColor: m.bgColor,
       textColor: m.textColor,
       borderColor: m.borderColor,
+      titleBgColor: m.titleBgColor,
       body: m.body,
     })),
     tokenReward: checklist.tokenReward,
