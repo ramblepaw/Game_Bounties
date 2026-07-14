@@ -78,6 +78,7 @@ export async function getChecklistExportData(checklistId: string) {
     where: { id: checklistId },
     include: {
       colorPresets: { orderBy: { createdAt: "asc" } },
+      notesModules: { orderBy: { order: "asc" } },
       tabs: {
         orderBy: { order: "asc" },
         include: {
@@ -116,7 +117,14 @@ export async function getChecklistExportData(checklistId: string) {
   return {
     name: checklist.name,
     description: checklist.description,
-    notes: checklist.notes,
+    notesModules: checklist.notesModules.map((m) => ({
+      title: m.title,
+      order: m.order,
+      bgColor: m.bgColor,
+      textColor: m.textColor,
+      borderColor: m.borderColor,
+      body: m.body,
+    })),
     tokenReward: checklist.tokenReward,
     badgeName: checklist.badgeName,
     badgeIconUrl: checklist.badgeIconUrl,
@@ -218,6 +226,7 @@ export async function getChecklistDetail(checklistId: string) {
           },
         },
       },
+      notesModules: { orderBy: { order: "asc" } },
       completions: {
         orderBy: { submittedAt: "desc" },
         take: 1,

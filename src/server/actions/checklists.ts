@@ -102,7 +102,6 @@ export async function updateChecklist(
   data: {
     name?: string;
     description?: string | null;
-    notes?: string | null;
     tokenReward?: number | null;
     badgeName?: string | null;
     badgeIconUrl?: string | null;
@@ -135,6 +134,7 @@ export async function duplicateChecklist(gameId: string, checklistId: string): P
           },
         },
       },
+      notesModules: { orderBy: { order: "asc" } },
     },
   });
 
@@ -149,6 +149,16 @@ export async function duplicateChecklist(gameId: string, checklistId: string): P
       tokenReward: original.tokenReward,
       badgeName: original.badgeName,
       badgeIconUrl: original.badgeIconUrl,
+      notesModules: {
+        create: original.notesModules.map((m) => ({
+          title: m.title,
+          order: m.order,
+          bgColor: m.bgColor,
+          textColor: m.textColor,
+          borderColor: m.borderColor,
+          body: m.body,
+        })),
+      },
       tabs: {
         create: original.tabs.map((tab) => ({
           title: tab.title,
@@ -246,10 +256,19 @@ const importTabSchema = z.object({
   sections: z.array(importSectionSchema).default([]),
 });
 
+const importNotesModuleSchema = z.object({
+  title: z.string().nullable().optional(),
+  order: z.number().optional(),
+  bgColor: z.string().nullable().optional(),
+  textColor: z.string().nullable().optional(),
+  borderColor: z.string().nullable().optional(),
+  body: z.string().nullable().optional(),
+});
+
 const importChecklistSchema = z.object({
   name: z.string().min(1),
   description: z.string().nullable().optional(),
-  notes: z.string().nullable().optional(),
+  notesModules: z.array(importNotesModuleSchema).default([]),
   tokenReward: z.number().nullable().optional(),
   badgeName: z.string().nullable().optional(),
   badgeIconUrl: z.string().nullable().optional(),
@@ -310,12 +329,21 @@ export async function importChecklist(
       gameId,
       name: data.name,
       description: data.description ?? null,
-      notes: data.notes ?? null,
       order: count,
       tokenReward: data.tokenReward ?? null,
       badgeName: data.badgeName ?? null,
       badgeIconUrl: remap(data.badgeIconUrl),
       colorPresets: { create: data.colorPresets },
+      notesModules: {
+        create: data.notesModules.map((m, index) => ({
+          title: m.title ?? null,
+          order: m.order ?? index,
+          bgColor: m.bgColor ?? null,
+          textColor: m.textColor ?? null,
+          borderColor: m.borderColor ?? null,
+          body: m.body ?? null,
+        })),
+      },
       tabs: {
         create: data.tabs.map((tab, tabIndex) => ({
           title: tab.title,
@@ -390,6 +418,45 @@ export async function reorderChecklists(gameId: string, orderedChecklistIds: str
     orderedChecklistIds.map((id, index) => db.checklist.update({ where: { id }, data: { order: index } })),
   );
   revalidatePath(`/games/${gameId}`);
+}
+
+// ---- Notes modules ----
+
+export type NotesModuleStyleInput = {
+  title?: string | null;
+  bgColor?: string | null;
+  textColor?: string | null;
+  borderColor?: string | null;
+  body?: string | null;
+};
+
+export async function createNotesModule(checklistId: string): Promise<{ id: string }> {
+  await requireSession();
+  const count = await db.checklistNotesModule.count({ where: { checklistId } });
+  const module_ = await db.checklistNotesModule.create({ data: { checklistId, order: count } });
+  revalidatePath("/", "layout");
+  return { id: module_.id };
+}
+
+export async function updateNotesModule(id: string, data: NotesModuleStyleInput): Promise<void> {
+  await requireSession();
+  await db.checklistNotesModule.update({ where: { id }, data });
+  revalidatePath("/", "layout");
+}
+
+export async function deleteNotesModule(id: string): Promise<void> {
+  await requireSession();
+  await db.checklistNotesModule.delete({ where: { id } });
+  revalidatePath("/", "layout");
+}
+
+/** Bulk reorder after a drag-and-drop move of a checklist's notes modules. */
+export async function reorderNotesModules(checklistId: string, orderedIds: string[]): Promise<void> {
+  await requireSession();
+  await db.$transaction(
+    orderedIds.map((id, index) => db.checklistNotesModule.update({ where: { id }, data: { order: index } })),
+  );
+  revalidatePath("/", "layout");
 }
 
 // ---- Color presets ----

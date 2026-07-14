@@ -90,9 +90,6 @@ model Checklist {
   game        Game    @relation(fields: [gameId], references: [id], onDelete: Cascade)
   name        String
   description String?
-  // Free-form rules/notes text, shown in its own tab -- distinct from the
-  // short `description` shown at the top of the checklist page.
-  notes       String?
   order       Int     @default(0)
   // Tokens awarded when this checklist is approved. Null = use the app-wide default.
   tokenReward Int?
@@ -108,8 +105,30 @@ model Checklist {
   playSessions PlaySession[]
   activeFor    ActiveChecklist[]
   colorPresets ChecklistColorPreset[]
+  notesModules ChecklistNotesModule[]
 
   @@index([gameId])
+}
+
+// A styled free-text block, edited in the designer alongside the checklist's
+// own tabs/modules but rendered read-only in the "Notes" view tab -- rules,
+// reminders, etc. that aren't meant to be tracked like a target. Deliberately
+// its own lightweight model rather than reusing ChecklistTab/Section/Item:
+// notes have no interactivity/progress at all, so there's nothing to gain
+// from the heavier item-kind/progress machinery those carry.
+model ChecklistNotesModule {
+  id          String    @id @default(cuid())
+  checklistId String
+  checklist   Checklist @relation(fields: [checklistId], references: [id], onDelete: Cascade)
+  title       String?
+  order       Int       @default(0)
+
+  bgColor     String?
+  textColor   String?
+  borderColor String?
+  body        String?
+
+  @@index([checklistId])
 }
 
 // A named color saved from the designer's color pickers, scoped to one

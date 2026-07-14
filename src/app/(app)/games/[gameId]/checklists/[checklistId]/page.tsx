@@ -150,7 +150,7 @@ export default async function ChecklistProgressPage({
 
       <ChecklistViewTabs
         checklistSlot={<ChecklistProgressView tabs={progressTabs} />}
-        notesSlot={<ChecklistNotesPanel checklistId={checklistId} notes={checklist.notes} />}
+        notesSlot={<ChecklistNotesPanel notesModules={checklist.notesModules} />}
         statsSlot={
           <ChecklistStatsPanel
             checklistId={checklistId}

@@ -25,6 +25,10 @@ import {
   moveChecklist,
   createColorPreset,
   deleteColorPreset,
+  createNotesModule,
+  updateNotesModule,
+  deleteNotesModule,
+  reorderNotesModules,
 } from "@/server/actions/checklists";
 import { ImagePicker } from "@/components/checklists/image-picker";
 import { GradientColorPicker } from "@/components/checklists/gradient-color-picker";
@@ -92,6 +96,16 @@ interface DesignerTab {
   sections: DesignerSection[];
 }
 
+interface DesignerNotesModule {
+  id: string;
+  title: string | null;
+  order: number;
+  bgColor: string | null;
+  textColor: string | null;
+  borderColor: string | null;
+  body: string | null;
+}
+
 interface DesignerChecklist {
   id: string;
   name: string;
@@ -99,9 +113,11 @@ interface DesignerChecklist {
   badgeName: string | null;
   badgeIconUrl: string | null;
   tabs: DesignerTab[];
+  notesModules: DesignerNotesModule[];
 }
 
 type SelectedType = "tab" | "module" | "item" | null;
+type EditorMode = "checklist" | "notes";
 
 const SPANS = [1, 2, 3, 4] as const;
 
@@ -166,6 +182,8 @@ export function ChecklistDesigner({
   const [draggedSectionId, setDraggedSectionId] = useState<string | null>(null);
   const [draggedItemId, setDraggedItemId] = useState<string | null>(null);
   const [collapsedSectionIds, setCollapsedSectionIds] = useState<Set<string>>(new Set());
+  const [editorMode, setEditorMode] = useState<EditorMode>("checklist");
+  const [draggedNotesModuleId, setDraggedNotesModuleId] = useState<string | null>(null);
 
   function toggleCollapsed(sectionId: string) {
     setCollapsedSectionIds((prev) => {
@@ -363,6 +381,37 @@ export function ChecklistDesigner({
 
     reorderTabs(checklist.id, ids).then(refresh);
     setDraggedTabId(null);
+  }
+
+  async function addNotesModule() {
+    await createNotesModule(checklist.id);
+    refresh();
+  }
+
+  function updateNotesModuleData(id: string, field: keyof DesignerNotesModule, value: unknown) {
+    updateNotesModule(id, { [field]: value }).then(refresh);
+  }
+
+  function handleDeleteNotesModule(id: string) {
+    deleteNotesModule(id).then(refresh);
+  }
+
+  function handleNotesModuleDragStart(e: React.DragEvent, id: string) {
+    setDraggedNotesModuleId(id);
+    e.dataTransfer.effectAllowed = "move";
+  }
+
+  function handleNotesModuleDrop(e: React.DragEvent, targetId: string) {
+    e.preventDefault();
+    if (!draggedNotesModuleId || draggedNotesModuleId === targetId) return;
+
+    const ids = checklist.notesModules.map((m) => m.id);
+    const draggedIdx = ids.indexOf(draggedNotesModuleId);
+    const targetIdx = ids.indexOf(targetId);
+    [ids[draggedIdx], ids[targetIdx]] = [ids[targetIdx], ids[draggedIdx]];
+
+    reorderNotesModules(checklist.id, ids).then(refresh);
+    setDraggedNotesModuleId(null);
   }
 
   function handleItemDragStart(e: React.DragEvent, id: string) {
@@ -875,13 +924,15 @@ export function ChecklistDesigner({
             className="w-16 rounded border border-neutral-300 px-1.5 py-1 text-sm text-neutral-900"
           />
         </label>
-        <button
-          type="button"
-          onClick={addModule}
-          className="ml-auto rounded-lg bg-neutral-900 px-4 py-2 text-sm font-bold text-white shadow hover:bg-neutral-700 lg:hidden"
-        >
-          + Add Module
-        </button>
+        {editorMode === "checklist" && (
+          <button
+            type="button"
+            onClick={addModule}
+            className="ml-auto rounded-lg bg-neutral-900 px-4 py-2 text-sm font-bold text-white shadow hover:bg-neutral-700 lg:hidden"
+          >
+            + Add Module
+          </button>
+        )}
         <ChecklistSettingsMenu
           checklistId={checklist.id}
           currentGameId={gameId}
@@ -919,6 +970,117 @@ export function ChecklistDesigner({
         </div>
       </div>
 
+      <div className="flex gap-2 border-b border-neutral-200 dark:border-neutral-700">
+        {(["checklist", "notes"] as const).map((mode) => (
+          <button
+            key={mode}
+            type="button"
+            onClick={() => setEditorMode(mode)}
+            className={cn(
+              "-mb-px border-b-2 px-3 py-2 text-sm font-medium capitalize transition-colors",
+              editorMode === mode
+                ? "border-violet-600 text-violet-700 dark:text-violet-300"
+                : "border-transparent text-neutral-500 hover:text-violet-700",
+            )}
+          >
+            {mode}
+          </button>
+        ))}
+      </div>
+
+      {editorMode === "notes" ? (
+        <div className="flex flex-col gap-3">
+          {checklist.notesModules.map((module_) => (
+            <div
+              key={module_.id}
+              draggable
+              onDragStart={(e) => handleNotesModuleDragStart(e, module_.id)}
+              onDragOver={handleDragOver}
+              onDrop={(e) => handleNotesModuleDrop(e, module_.id)}
+              style={{
+                ...resolveBackgroundStyle(module_.bgColor, "#241b35"),
+                borderColor: module_.borderColor ?? "#4c1d95",
+                color: module_.textColor ?? "#ede9fe",
+              }}
+              className="flex flex-col gap-3 rounded-xl border-2 p-4"
+            >
+              <div className="flex items-center gap-2">
+                <span className="cursor-grab text-neutral-400" title="Drag to reorder">
+                  ⋮⋮
+                </span>
+                <input
+                  key={`${module_.id}-title`}
+                  defaultValue={module_.title ?? ""}
+                  onBlur={(e) => updateNotesModuleData(module_.id, "title", e.target.value || null)}
+                  placeholder="Untitled module"
+                  className="min-w-0 flex-1 rounded-md border border-white/20 bg-black/20 px-3 py-1.5 text-sm font-bold outline-none focus:border-white/50"
+                />
+                <button
+                  type="button"
+                  onClick={() => handleDeleteNotesModule(module_.id)}
+                  className="shrink-0 rounded bg-red-50 px-2 py-1 text-xs font-bold text-red-600 hover:text-red-700"
+                >
+                  Delete
+                </button>
+              </div>
+
+              <div className="grid grid-cols-1 gap-3 rounded-lg bg-black/10 p-3 sm:grid-cols-3">
+                <div>
+                  <label className="mb-1 block text-xs opacity-70">Background</label>
+                  <GradientColorPicker
+                    key={`${module_.id}-bg`}
+                    value={module_.bgColor}
+                    fallback="#241b35"
+                    onChange={(value) => updateNotesModuleData(module_.id, "bgColor", value)}
+                    presets={colorPresets}
+                    onSavePreset={savePreset}
+                    onDeletePreset={deletePreset}
+                  />
+                </div>
+                <div className="flex items-center justify-between">
+                  <label className="text-xs opacity-70">Text color</label>
+                  <ColorField
+                    key={`${module_.id}-text`}
+                    defaultValue={module_.textColor ?? "#ede9fe"}
+                    onChange={(color) => updateNotesModuleData(module_.id, "textColor", color)}
+                    presets={colorPresets}
+                    onSavePreset={savePreset}
+                    onDeletePreset={deletePreset}
+                  />
+                </div>
+                <div className="flex items-center justify-between">
+                  <label className="text-xs opacity-70">Border color</label>
+                  <ColorField
+                    key={`${module_.id}-border`}
+                    defaultValue={module_.borderColor ?? "#5b21b6"}
+                    onChange={(color) => updateNotesModuleData(module_.id, "borderColor", color)}
+                    presets={colorPresets}
+                    onSavePreset={savePreset}
+                    onDeletePreset={deletePreset}
+                  />
+                </div>
+              </div>
+
+              <textarea
+                key={`${module_.id}-body`}
+                defaultValue={module_.body ?? ""}
+                onBlur={(e) => updateNotesModuleData(module_.id, "body", e.target.value || null)}
+                rows={6}
+                placeholder="Rules, reminders, anything you want written down for this checklist..."
+                className="w-full resize-y rounded-md border border-white/20 bg-black/20 px-3 py-2 text-sm outline-none focus:border-white/50"
+              />
+            </div>
+          ))}
+          <button
+            type="button"
+            onClick={addNotesModule}
+            className="rounded-lg border border-dashed border-neutral-300 px-4 py-3 text-sm font-bold text-neutral-500 hover:bg-neutral-100 dark:border-neutral-700 dark:hover:bg-neutral-800"
+          >
+            + Add Module
+          </button>
+        </div>
+      ) : (
+        <>
       <div className="flex gap-2 overflow-x-auto border-b border-neutral-200 px-1 dark:border-neutral-700">
         {checklist.tabs.map((tab) => {
           const isActive = activeTab?.id === tab.id;
@@ -1212,6 +1374,8 @@ export function ChecklistDesigner({
           {renderPropertiesPanel()}
         </aside>
       </div>
+        </>
+      )}
     </div>
   );
 }
