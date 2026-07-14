@@ -155,6 +155,39 @@ function ModuleCard({
     wasComplete.current = allComplete;
   }, [allComplete]);
 
+  // A grid ("binder") tile has no room to show the description permanently,
+  // so it's hidden until revealed by hover (desktop, handled in CSS via
+  // `group`) or a long-press (touch has no hover state to lean on). Only one
+  // tile is ever revealed at a time, and it auto-hides after a few idle
+  // seconds rather than needing an explicit dismiss gesture.
+  const [revealedItemId, setRevealedItemId] = useState<string | null>(null);
+  const longPressTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const revealTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(() => {
+    return () => {
+      if (longPressTimerRef.current) clearTimeout(longPressTimerRef.current);
+      if (revealTimeoutRef.current) clearTimeout(revealTimeoutRef.current);
+    };
+  }, []);
+
+  function revealDescription(itemId: string) {
+    setRevealedItemId(itemId);
+    if (revealTimeoutRef.current) clearTimeout(revealTimeoutRef.current);
+    revealTimeoutRef.current = setTimeout(() => setRevealedItemId(null), 3000);
+  }
+
+  function handleDescriptionTouchStart(itemId: string) {
+    if (longPressTimerRef.current) clearTimeout(longPressTimerRef.current);
+    longPressTimerRef.current = setTimeout(() => revealDescription(itemId), 450);
+  }
+
+  function cancelLongPress() {
+    if (longPressTimerRef.current) {
+      clearTimeout(longPressTimerRef.current);
+      longPressTimerRef.current = null;
+    }
+  }
+
   return (
     <div
       style={{ ...resolveBackgroundStyle(section.bgColor, "#241b35"), borderColor: section.borderColor ?? "#4c1d95" }}
@@ -209,6 +242,7 @@ function ModuleCard({
                 // plain color, but it also muddies a deliberately-chosen gradient
                 // background -- so only apply it when there isn't one.
                 const hasGradientBg = !!item.bgColor && isGradient(item.bgColor);
+                const isGridWithDescription = section.itemLayout === "GRID" && !!item.description;
                 return (
                   <div
                     key={item.id}
@@ -234,6 +268,9 @@ function ModuleCard({
                             }
                           }
                     }
+                    onTouchStart={isGridWithDescription ? () => handleDescriptionTouchStart(item.id) : undefined}
+                    onTouchEnd={isGridWithDescription ? cancelLongPress : undefined}
+                    onTouchMove={isGridWithDescription ? cancelLongPress : undefined}
                     style={{
                       borderColor: isStage ? resolvedStage.borderColor : (item.borderColor ?? "transparent"),
                       color: isStage ? resolvedStage.textColor : (item.textColor ?? "#ede9fe"),
@@ -241,6 +278,7 @@ function ModuleCard({
                     className={cn(
                       "relative isolate overflow-hidden rounded-xl border transition-transform focus:outline-none focus:ring-2 focus:ring-neutral-900",
                       isCounter ? "" : "cursor-pointer hover:scale-[1.02]",
+                      isGridWithDescription && "group",
                       section.itemLayout === "GRID" ? "flex aspect-square flex-col" : "flex items-center gap-3 p-2",
                       item.isComplete && "opacity-50 saturate-[0.35]",
                     )}
@@ -325,6 +363,16 @@ function ModuleCard({
                             />
                           )}
                         </div>
+                        {item.description && (
+                          <div
+                            className={cn(
+                              "absolute inset-0 z-30 flex items-center overflow-y-auto bg-black/80 p-3 text-xs leading-snug opacity-0 transition-opacity duration-150 group-hover:opacity-100 group-hover:pointer-events-auto",
+                              revealedItemId === item.id ? "pointer-events-auto opacity-100" : "pointer-events-none",
+                            )}
+                          >
+                            <p>{item.description}</p>
+                          </div>
+                        )}
                       </>
                     ) : (
                       <>
