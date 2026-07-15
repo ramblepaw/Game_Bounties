@@ -46,6 +46,11 @@ const X_BASE_GAP = Math.round(CARD_WIDTH * 0.958);
 const X_STEP_GAP = Math.round(CARD_WIDTH * 0.375);
 const Z_STEP = Math.round(CARD_WIDTH * 0.583);
 
+/** Case- and diacritic-insensitive, so "pokemon" matches "Pokémon Red Version". */
+function normalizeForSearch(s: string): string {
+  return s.normalize("NFD").replace(/\p{Diacritic}/gu, "").toLowerCase();
+}
+
 /** Shortest signed distance from `i` to `index` around a ring of size `n`. */
 function ringOffset(i: number, index: number, n: number): number {
   let offset = ((i - index) % n) + n;
@@ -59,6 +64,7 @@ export function GameCarousel({ games }: { games: CarouselGame[] }) {
   const [index, setIndex] = useState(0);
   const [query, setQuery] = useState("");
   const [notFound, setNotFound] = useState(false);
+  const [searchResults, setSearchResults] = useState<{ index: number; game: CarouselGame }[]>([]);
   const spinIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const touchStartXRef = useRef<number | null>(null);
   const wheelAccumRef = useRef(0);
@@ -169,17 +175,22 @@ export function GameCarousel({ games }: { games: CarouselGame[] }) {
 
   function handleSearchSubmit(e: React.FormEvent) {
     e.preventDefault();
-    const q = query.trim().toLowerCase();
+    const q = normalizeForSearch(query.trim());
     if (!q) return;
-    const targetIndex = games.findIndex(
-      (g) => g.title.toLowerCase().includes(q) || g.secondaryTitle?.toLowerCase().includes(q),
-    );
-    if (targetIndex === -1) {
-      setNotFound(true);
-      return;
-    }
-    setNotFound(false);
+    const matches = games
+      .map((game, i) => ({ game, index: i }))
+      .filter(
+        ({ game }) =>
+          normalizeForSearch(game.title).includes(q) ||
+          (game.secondaryTitle && normalizeForSearch(game.secondaryTitle).includes(q)),
+      );
+    setSearchResults(matches);
+    setNotFound(matches.length === 0);
+  }
+
+  function pickSearchResult(targetIndex: number) {
     spinToIndex(targetIndex);
+    setSearchResults([]);
   }
 
   return (
@@ -190,6 +201,7 @@ export function GameCarousel({ games }: { games: CarouselGame[] }) {
           onChange={(e) => {
             setQuery(e.target.value);
             setNotFound(false);
+            setSearchResults([]);
           }}
           placeholder="Search games…"
           className="flex-1"
@@ -199,6 +211,31 @@ export function GameCarousel({ games }: { games: CarouselGame[] }) {
         </Button>
       </form>
       {notFound && <p className="text-xs text-red-500">No game matches &quot;{query}&quot;.</p>}
+      {searchResults.length > 0 && (
+        <ul className="flex w-full max-w-sm flex-col gap-1 rounded-lg border border-violet-200 bg-white p-2 shadow dark:border-violet-800 dark:bg-neutral-900">
+          {searchResults.map(({ game, index: resultIndex }) => (
+            <li key={game.id}>
+              <button
+                type="button"
+                onClick={() => pickSearchResult(resultIndex)}
+                className="flex w-full items-center gap-3 rounded-md p-2 text-left text-sm hover:bg-violet-50 dark:hover:bg-violet-950"
+              >
+                <div className="relative aspect-[3/4] h-12 w-9 shrink-0 overflow-hidden rounded bg-violet-100 dark:bg-violet-950">
+                  <GameCover
+                    title={game.title}
+                    coverImageUrl={game.coverImageUrl}
+                    secondaryCoverImageUrl={game.secondaryCoverImageUrl}
+                  />
+                </div>
+                <span className="min-w-0 truncate">
+                  {game.title}
+                  {game.secondaryTitle && <span className="text-neutral-400"> &amp; {game.secondaryTitle}</span>}
+                </span>
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
 
       <div
         className="relative w-full"
