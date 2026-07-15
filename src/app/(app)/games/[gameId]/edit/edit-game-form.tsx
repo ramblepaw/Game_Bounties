@@ -37,6 +37,12 @@ export function EditGameForm({ game }: { game: EditableGame }) {
   const [releaseYear, setReleaseYear] = useState(game.releaseYear ? String(game.releaseYear) : "");
   const [secondaryTitle, setSecondaryTitle] = useState(game.secondaryTitle ?? "");
 
+  const [isSecondarySearching, startSecondarySearch] = useTransition();
+  const [secondaryQuery, setSecondaryQuery] = useState("");
+  const [secondaryResults, setSecondaryResults] = useState<IgdbSearchResult[]>([]);
+  const [secondarySearchError, setSecondarySearchError] = useState<string | null>(null);
+  const [secondarySelected, setSecondarySelected] = useState<IgdbSearchResult | null>(null);
+
   function runSearch() {
     if (!query.trim()) return;
     startSearch(async () => {
@@ -52,6 +58,21 @@ export function EditGameForm({ game }: { game: EditableGame }) {
     setPlatform(result.platforms.join(", "));
     setReleaseYear(result.releaseYear ? String(result.releaseYear) : "");
     setResults([]);
+  }
+
+  function runSecondarySearch() {
+    if (!secondaryQuery.trim()) return;
+    startSecondarySearch(async () => {
+      const { results, error } = await searchGamesOnIgdb(secondaryQuery);
+      setSecondaryResults(results);
+      setSecondarySearchError(error);
+    });
+  }
+
+  function pickSecondaryResult(result: IgdbSearchResult) {
+    setSecondarySelected(result);
+    setSecondaryTitle(result.name);
+    setSecondaryResults([]);
   }
 
   return (
@@ -194,6 +215,75 @@ export function EditGameForm({ game }: { game: EditableGame }) {
         <label htmlFor="secondaryTitle" className="text-sm font-medium">
           Paired version (optional — e.g. Pokémon Y, if this entry is for Pokémon X &amp; Y)
         </label>
+
+        <div className="flex flex-col gap-2 rounded-lg border border-dashed border-neutral-300 p-3 dark:border-neutral-700">
+          <label htmlFor="igdbSecondaryQuery" className="text-sm font-medium">
+            Search IGDB
+          </label>
+          <div className="flex gap-2">
+            <Input
+              id="igdbSecondaryQuery"
+              value={secondaryQuery}
+              onChange={(e) => setSecondaryQuery(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") {
+                  e.preventDefault();
+                  runSecondarySearch();
+                }
+              }}
+              placeholder="Search for the paired game…"
+            />
+            <Button type="button" size="sm" variant="secondary" disabled={isSecondarySearching} onClick={runSecondarySearch}>
+              {isSecondarySearching ? "Searching…" : "Search"}
+            </Button>
+          </div>
+          {secondarySearchError && <p className="text-sm text-red-600">{secondarySearchError}</p>}
+          {secondaryResults.length > 0 && (
+            <ul className="flex flex-col gap-1">
+              {secondaryResults.map((r) => (
+                <li key={r.igdbId}>
+                  <button
+                    type="button"
+                    onClick={() => pickSecondaryResult(r)}
+                    className="flex w-full items-center gap-3 rounded-md p-2 text-left text-sm hover:bg-neutral-100 dark:hover:bg-neutral-800"
+                  >
+                    {r.coverImageUrl ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img
+                        src={r.coverImageUrl}
+                        alt=""
+                        referrerPolicy="no-referrer"
+                        className="h-12 w-9 shrink-0 rounded object-cover"
+                      />
+                    ) : (
+                      <div className="h-12 w-9 shrink-0 rounded bg-neutral-200 dark:bg-neutral-700" />
+                    )}
+                    <span>
+                      {r.name}
+                      {r.releaseYear && <span className="text-neutral-500 dark:text-neutral-400"> ({r.releaseYear})</span>}
+                    </span>
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )}
+          {secondarySelected && (
+            <div className="flex items-center justify-between rounded-md bg-neutral-100 px-3 py-2 text-sm dark:bg-neutral-800">
+              <span>
+                Selected: <strong>{secondarySelected.name}</strong>
+              </span>
+              <button
+                type="button"
+                onClick={() => setSecondarySelected(null)}
+                className="text-xs text-neutral-500 hover:text-neutral-900 dark:hover:text-neutral-100"
+              >
+                Clear
+              </button>
+            </div>
+          )}
+        </div>
+        <input type="hidden" name="igdbSecondaryCoverImageUrl" value={secondarySelected?.coverImageUrl ?? ""} />
+
         <Input
           id="secondaryTitle"
           name="secondaryTitle"
@@ -202,9 +292,9 @@ export function EditGameForm({ game }: { game: EditableGame }) {
           placeholder="Second game's title"
         />
         <label htmlFor="secondaryCoverImage" className="text-sm font-medium">
-          Paired version cover art
+          Paired version cover art {secondarySelected?.coverImageUrl && "(overrides the IGDB cover above)"}
         </label>
-        {game.secondaryCoverImageUrl && (
+        {game.secondaryCoverImageUrl && !secondarySelected?.coverImageUrl && (
           <div className="flex items-center gap-2 text-xs text-neutral-500">
             Current:
             {/* eslint-disable-next-line @next/next/no-img-element */}

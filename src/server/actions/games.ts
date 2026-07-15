@@ -18,6 +18,7 @@ const gameSchema = z.object({
   genres: z.string().optional(),
   igdbCoverImageUrl: z.string().optional(),
   secondaryTitle: z.string().optional(),
+  igdbSecondaryCoverImageUrl: z.string().optional(),
 });
 
 export type GameFormState = { error: string | null };
@@ -40,6 +41,7 @@ export async function createGame(
     genres: formData.get("genres"),
     igdbCoverImageUrl: formData.get("igdbCoverImageUrl"),
     secondaryTitle: formData.get("secondaryTitle"),
+    igdbSecondaryCoverImageUrl: formData.get("igdbSecondaryCoverImageUrl"),
   });
   if (!parsed.success) {
     return { error: parsed.error.issues[0]?.message ?? "Invalid input." };
@@ -58,6 +60,8 @@ export async function createGame(
     }
     if (secondaryCoverFile instanceof File && secondaryCoverFile.size > 0) {
       secondaryCoverImageUrl = await saveUploadedImage(secondaryCoverFile, "covers");
+    } else if (parsed.data.igdbSecondaryCoverImageUrl) {
+      secondaryCoverImageUrl = await saveImageFromUrl(parsed.data.igdbSecondaryCoverImageUrl, "covers");
     }
   } catch (err) {
     if (err instanceof UploadValidationError) {
@@ -105,6 +109,7 @@ export async function updateGame(
     genres: formData.get("genres"),
     igdbCoverImageUrl: formData.get("igdbCoverImageUrl"),
     secondaryTitle: formData.get("secondaryTitle"),
+    igdbSecondaryCoverImageUrl: formData.get("igdbSecondaryCoverImageUrl"),
   });
   if (!parsed.success) {
     return { error: parsed.error.issues[0]?.message ?? "Invalid input." };
@@ -122,6 +127,8 @@ export async function updateGame(
     }
     if (secondaryCoverFile instanceof File && secondaryCoverFile.size > 0) {
       secondaryCoverImageUrl = await saveUploadedImage(secondaryCoverFile, "covers");
+    } else if (parsed.data.igdbSecondaryCoverImageUrl) {
+      secondaryCoverImageUrl = await saveImageFromUrl(parsed.data.igdbSecondaryCoverImageUrl, "covers");
     }
   } catch (err) {
     if (err instanceof UploadValidationError) {

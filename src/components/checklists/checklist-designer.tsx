@@ -225,6 +225,11 @@ export function ChecklistDesigner({
   const selectedTab = checklist.tabs.find((t) => t.id === selectedId);
   const selectedSection = allSections.find((s) => s.id === selectedId);
   const selectedItem = allItems.find((i) => i.id === selectedId);
+  // The item's own parent module -- distinct from `selectedSection`, which is
+  // only set when the module itself (not one of its items) is selected.
+  const selectedItemSection = selectedItem
+    ? allSections.find((s) => s.items.some((i) => i.id === selectedItem.id))
+    : undefined;
 
   async function addTab() {
     const { id } = await createTab(checklist.id);
@@ -773,16 +778,18 @@ export function ChecklistDesigner({
               )}
             </div>
 
-            <div>
-              <label className="mb-1 block text-xs text-neutral-500">Description</label>
-              <textarea
-                key={`${selectedItem.id}-desc`}
-                defaultValue={selectedItem.description ?? ""}
-                onBlur={(e) => updateSelectedData("description", e.target.value || null)}
-                rows={2}
-                className="w-full resize-none rounded-md border border-neutral-300 px-3 py-2 text-sm outline-none focus:border-neutral-900"
-              />
-            </div>
+            {selectedItemSection?.itemLayout !== "GRID" && (
+              <div>
+                <label className="mb-1 block text-xs text-neutral-500">Description</label>
+                <textarea
+                  key={`${selectedItem.id}-desc`}
+                  defaultValue={selectedItem.description ?? ""}
+                  onBlur={(e) => updateSelectedData("description", e.target.value || null)}
+                  rows={2}
+                  className="w-full resize-none rounded-md border border-neutral-300 px-3 py-2 text-sm outline-none focus:border-neutral-900"
+                />
+              </div>
+            )}
 
             <div>
               <label className="mb-1 block text-xs text-neutral-500">
