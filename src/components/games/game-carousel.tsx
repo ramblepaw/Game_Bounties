@@ -64,8 +64,9 @@ export function GameCarousel({ games }: { games: CarouselGame[] }) {
   const [index, setIndex] = useState(0);
   const [query, setQuery] = useState("");
   const [notFound, setNotFound] = useState(false);
-  const [searchResults, setSearchResults] = useState<{ index: number; game: CarouselGame }[]>([]);
-  const spinIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  // null = showing every game; an array = the carousel ring itself is
+  // narrowed down to just these search matches.
+  const [filteredGames, setFilteredGames] = useState<CarouselGame[] | null>(null);
   const touchStartXRef = useRef<number | null>(null);
   const wheelAccumRef = useRef(0);
   const wheelQueueRef = useRef(0);
@@ -74,38 +75,23 @@ export function GameCarousel({ games }: { games: CarouselGame[] }) {
   const [dragOffsetPx, setDragOffsetPx] = useState(0);
   const [isDragging, setIsDragging] = useState(false);
   const [isWheeling, setIsWheeling] = useState(false);
-  const n = games.length;
+  const totalCount = games.length;
+  const visibleGames = filteredGames ?? games;
+  const n = visibleGames.length;
 
   useEffect(() => {
     return () => {
-      if (spinIntervalRef.current) clearInterval(spinIntervalRef.current);
       if (wheelIntervalRef.current) clearInterval(wheelIntervalRef.current);
     };
   }, []);
 
-  if (n === 0) {
+  if (totalCount === 0) {
     return <p className="text-neutral-500">No games yet. Add your first one below.</p>;
   }
 
   const prev = () => setIndex((i) => (i - 1 + n) % n);
   const next = () => setIndex((i) => (i + 1) % n);
-  const active = games[index];
-
-  function spinToIndex(targetIndex: number) {
-    if (spinIntervalRef.current) return;
-    const steps = ringOffset(targetIndex, index, n);
-    if (steps === 0) return;
-    const direction = steps > 0 ? 1 : -1;
-    let remaining = Math.abs(steps);
-    spinIntervalRef.current = setInterval(() => {
-      setIndex((i) => (i + direction + n) % n);
-      remaining -= 1;
-      if (remaining <= 0 && spinIntervalRef.current) {
-        clearInterval(spinIntervalRef.current);
-        spinIntervalRef.current = null;
-      }
-    }, SPIN_STEP_MS);
-  }
+  const active = visibleGames[index];
 
   function handleTouchStart(e: React.TouchEvent) {
     touchStartXRef.current = e.touches[0].clientX;
@@ -176,21 +162,30 @@ export function GameCarousel({ games }: { games: CarouselGame[] }) {
   function handleSearchSubmit(e: React.FormEvent) {
     e.preventDefault();
     const q = normalizeForSearch(query.trim());
-    if (!q) return;
-    const matches = games
-      .map((game, i) => ({ game, index: i }))
-      .filter(
-        ({ game }) =>
-          normalizeForSearch(game.title).includes(q) ||
-          (game.secondaryTitle && normalizeForSearch(game.secondaryTitle).includes(q)),
-      );
-    setSearchResults(matches);
-    setNotFound(matches.length === 0);
+    if (!q) {
+      // An empty query clears any active filter and goes back to every game.
+      setFilteredGames(null);
+      setNotFound(false);
+      setIndex(0);
+      return;
+    }
+    const matches = games.filter(
+      (g) => normalizeForSearch(g.title).includes(q) || (g.secondaryTitle && normalizeForSearch(g.secondaryTitle).includes(q)),
+    );
+    if (matches.length === 0) {
+      setNotFound(true);
+      return;
+    }
+    setNotFound(false);
+    setFilteredGames(matches);
+    setIndex(0);
   }
 
-  function pickSearchResult(targetIndex: number) {
-    spinToIndex(targetIndex);
-    setSearchResults([]);
+  function clearFilter() {
+    setFilteredGames(null);
+    setQuery("");
+    setNotFound(false);
+    setIndex(0);
   }
 
   return (
@@ -201,7 +196,6 @@ export function GameCarousel({ games }: { games: CarouselGame[] }) {
           onChange={(e) => {
             setQuery(e.target.value);
             setNotFound(false);
-            setSearchResults([]);
           }}
           placeholder="Search games…"
           className="flex-1"
@@ -211,30 +205,17 @@ export function GameCarousel({ games }: { games: CarouselGame[] }) {
         </Button>
       </form>
       {notFound && <p className="text-xs text-red-500">No game matches &quot;{query}&quot;.</p>}
-      {searchResults.length > 0 && (
-        <ul className="flex w-full max-w-sm flex-col gap-1 rounded-lg border border-violet-200 bg-white p-2 shadow dark:border-violet-800 dark:bg-neutral-900">
-          {searchResults.map(({ game, index: resultIndex }) => (
-            <li key={game.id}>
-              <button
-                type="button"
-                onClick={() => pickSearchResult(resultIndex)}
-                className="flex w-full items-center gap-3 rounded-md p-2 text-left text-sm hover:bg-violet-50 dark:hover:bg-violet-950"
-              >
-                <div className="relative aspect-[3/4] h-12 w-9 shrink-0 overflow-hidden rounded bg-violet-100 dark:bg-violet-950">
-                  <GameCover
-                    title={game.title}
-                    coverImageUrl={game.coverImageUrl}
-                    secondaryCoverImageUrl={game.secondaryCoverImageUrl}
-                  />
-                </div>
-                <span className="min-w-0 truncate">
-                  {game.title}
-                  {game.secondaryTitle && <span className="text-neutral-400"> &amp; {game.secondaryTitle}</span>}
-                </span>
-              </button>
-            </li>
-          ))}
-        </ul>
+      {filteredGames && (
+        <p className="text-xs text-neutral-500">
+          Showing {filteredGames.length} of {totalCount} games ·{" "}
+          <button
+            type="button"
+            onClick={clearFilter}
+            className="font-medium text-violet-600 hover:underline dark:text-violet-400"
+          >
+            Show all
+          </button>
+        </p>
       )}
 
       <div
@@ -255,7 +236,7 @@ export function GameCarousel({ games }: { games: CarouselGame[] }) {
             transformStyle: "preserve-3d",
           }}
         >
-          {games.map((game, i) => {
+          {visibleGames.map((game, i) => {
             const staticOffset = ringOffset(i, index, n);
             const isFront = staticOffset === 0;
             // While a touch drag is in progress, blend the ring position
