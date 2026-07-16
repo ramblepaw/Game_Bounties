@@ -29,6 +29,10 @@ import {
   updateNotesModule,
   deleteNotesModule,
   reorderNotesModules,
+  createRequiredGame,
+  updateRequiredGame,
+  deleteRequiredGame,
+  reorderRequiredGames,
 } from "@/server/actions/checklists";
 import { ImagePicker } from "@/components/checklists/image-picker";
 import { GradientColorPicker } from "@/components/checklists/gradient-color-picker";
@@ -108,6 +112,13 @@ interface DesignerNotesModule {
   body: string | null;
 }
 
+interface DesignerRequiredGame {
+  id: string;
+  title: string;
+  url: string | null;
+  order: number;
+}
+
 interface DesignerChecklist {
   id: string;
   name: string;
@@ -116,10 +127,11 @@ interface DesignerChecklist {
   badgeIconUrl: string | null;
   tabs: DesignerTab[];
   notesModules: DesignerNotesModule[];
+  requiredGames: DesignerRequiredGame[];
 }
 
 type SelectedType = "tab" | "module" | "item" | null;
-type EditorMode = "checklist" | "notes";
+type EditorMode = "checklist" | "notes" | "games";
 
 const SPANS = [1, 2, 3, 4] as const;
 
@@ -186,6 +198,7 @@ export function ChecklistDesigner({
   const [collapsedSectionIds, setCollapsedSectionIds] = useState<Set<string>>(new Set());
   const [editorMode, setEditorMode] = useState<EditorMode>("checklist");
   const [draggedNotesModuleId, setDraggedNotesModuleId] = useState<string | null>(null);
+  const [draggedRequiredGameId, setDraggedRequiredGameId] = useState<string | null>(null);
 
   function toggleCollapsed(sectionId: string) {
     setCollapsedSectionIds((prev) => {
@@ -419,6 +432,37 @@ export function ChecklistDesigner({
 
     reorderNotesModules(checklist.id, ids).then(refresh);
     setDraggedNotesModuleId(null);
+  }
+
+  async function addRequiredGame() {
+    await createRequiredGame(checklist.id);
+    refresh();
+  }
+
+  function updateRequiredGameData(id: string, field: keyof DesignerRequiredGame, value: unknown) {
+    updateRequiredGame(id, { [field]: value }).then(refresh);
+  }
+
+  function handleDeleteRequiredGame(id: string) {
+    deleteRequiredGame(id).then(refresh);
+  }
+
+  function handleRequiredGameDragStart(e: React.DragEvent, id: string) {
+    setDraggedRequiredGameId(id);
+    e.dataTransfer.effectAllowed = "move";
+  }
+
+  function handleRequiredGameDrop(e: React.DragEvent, targetId: string) {
+    e.preventDefault();
+    if (!draggedRequiredGameId || draggedRequiredGameId === targetId) return;
+
+    const ids = checklist.requiredGames.map((g) => g.id);
+    const draggedIdx = ids.indexOf(draggedRequiredGameId);
+    const targetIdx = ids.indexOf(targetId);
+    [ids[draggedIdx], ids[targetIdx]] = [ids[targetIdx], ids[draggedIdx]];
+
+    reorderRequiredGames(checklist.id, ids).then(refresh);
+    setDraggedRequiredGameId(null);
   }
 
   function handleItemDragStart(e: React.DragEvent, id: string) {
@@ -980,7 +1024,7 @@ export function ChecklistDesigner({
       </div>
 
       <div className="flex gap-2 border-b border-neutral-200 dark:border-neutral-700">
-        {(["checklist", "notes"] as const).map((mode) => (
+        {(["checklist", "notes", "games"] as const).map((mode) => (
           <button
             key={mode}
             type="button"
@@ -1122,6 +1166,56 @@ export function ChecklistDesigner({
             className="col-span-4 rounded-lg border border-dashed border-neutral-300 px-4 py-3 text-sm font-bold text-neutral-500 hover:bg-neutral-100 dark:border-neutral-700 dark:hover:bg-neutral-800"
           >
             + Add Module
+          </button>
+        </div>
+      ) : editorMode === "games" ? (
+        <div className="flex flex-col gap-2">
+          <p className="text-sm text-neutral-500">
+            Games needed to run this checklist, with an optional link to wherever you have it
+            hosted (leave the link blank if it isn&apos;t hosted anywhere yet).
+          </p>
+          {checklist.requiredGames.map((game) => (
+            <div
+              key={game.id}
+              draggable
+              onDragStart={(e) => handleRequiredGameDragStart(e, game.id)}
+              onDragOver={handleDragOver}
+              onDrop={(e) => handleRequiredGameDrop(e, game.id)}
+              className="flex items-center gap-2 rounded-lg border border-neutral-200 p-3 dark:border-neutral-700"
+            >
+              <span className="cursor-grab text-neutral-400" title="Drag to reorder">
+                ⋮⋮
+              </span>
+              <input
+                key={`${game.id}-title`}
+                defaultValue={game.title}
+                onBlur={(e) => updateRequiredGameData(game.id, "title", e.target.value)}
+                placeholder="Game title"
+                className="min-w-0 flex-1 rounded-md border border-neutral-300 px-3 py-1.5 text-sm outline-none focus:border-neutral-900 dark:border-neutral-700 dark:bg-neutral-900"
+              />
+              <input
+                key={`${game.id}-url`}
+                type="url"
+                defaultValue={game.url ?? ""}
+                onBlur={(e) => updateRequiredGameData(game.id, "url", e.target.value || null)}
+                placeholder="https://…"
+                className="min-w-0 flex-[2] rounded-md border border-neutral-300 px-3 py-1.5 text-sm outline-none focus:border-neutral-900 dark:border-neutral-700 dark:bg-neutral-900"
+              />
+              <button
+                type="button"
+                onClick={() => handleDeleteRequiredGame(game.id)}
+                className="shrink-0 rounded bg-red-50 px-2 py-1 text-xs font-bold text-red-600 hover:text-red-700"
+              >
+                Delete
+              </button>
+            </div>
+          ))}
+          <button
+            type="button"
+            onClick={addRequiredGame}
+            className="rounded-lg border border-dashed border-neutral-300 px-4 py-3 text-sm font-bold text-neutral-500 hover:bg-neutral-100 dark:border-neutral-700 dark:hover:bg-neutral-800"
+          >
+            + Add Game
           </button>
         </div>
       ) : (

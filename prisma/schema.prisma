@@ -106,6 +106,7 @@ model Checklist {
   activeFor    ActiveChecklist[]
   colorPresets ChecklistColorPreset[]
   notesModules ChecklistNotesModule[]
+  requiredGames ChecklistRequiredGame[]
 
   @@index([gameId])
 }
@@ -131,6 +132,21 @@ model ChecklistNotesModule {
   // the body behind the text. Same split as ChecklistSection.titleBgColor.
   titleBgColor String?
   body         String?
+
+  @@index([checklistId])
+}
+
+// A game needed to run this checklist, with an optional link to wherever
+// it's actually hosted (e.g. a GameVault/Romm page) -- some games (not on
+// either service yet) simply have no url. Shown in its own "Games" tab,
+// separate from the free-form Notes tab.
+model ChecklistRequiredGame {
+  id          String    @id @default(cuid())
+  checklistId String
+  checklist   Checklist @relation(fields: [checklistId], references: [id], onDelete: Cascade)
+  title       String
+  url         String?
+  order       Int       @default(0)
 
   @@index([checklistId])
 }

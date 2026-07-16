@@ -18,6 +18,7 @@ import { getSession } from "@/lib/auth";
 import { ChecklistProgressView } from "@/components/checklists/checklist-progress-view";
 import { ChecklistStatsPanel } from "@/components/checklists/checklist-stats-panel";
 import { ChecklistNotesPanel } from "@/components/checklists/checklist-notes-panel";
+import { ChecklistRequiredGamesPanel } from "@/components/checklists/checklist-required-games-panel";
 import { ChecklistViewTabs } from "@/components/checklists/checklist-view-tabs";
 import { SubmitApprovalForm } from "@/components/checklists/submit-approval-form";
 import { SessionTimer } from "@/components/sessions/session-timer";
@@ -151,6 +152,7 @@ export default async function ChecklistProgressPage({
       <ChecklistViewTabs
         checklistSlot={<ChecklistProgressView tabs={progressTabs} />}
         notesSlot={<ChecklistNotesPanel notesModules={checklist.notesModules} />}
+        gamesSlot={<ChecklistRequiredGamesPanel requiredGames={checklist.requiredGames} />}
         statsSlot={
           <ChecklistStatsPanel
             checklistId={checklistId}

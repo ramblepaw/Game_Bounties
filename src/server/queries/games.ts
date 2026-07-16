@@ -79,6 +79,7 @@ export async function getChecklistExportData(checklistId: string) {
     include: {
       colorPresets: { orderBy: { createdAt: "asc" } },
       notesModules: { orderBy: { order: "asc" } },
+      requiredGames: { orderBy: { order: "asc" } },
       tabs: {
         orderBy: { order: "asc" },
         include: {
@@ -126,6 +127,11 @@ export async function getChecklistExportData(checklistId: string) {
       borderColor: m.borderColor,
       titleBgColor: m.titleBgColor,
       body: m.body,
+    })),
+    requiredGames: checklist.requiredGames.map((g) => ({
+      title: g.title,
+      url: g.url,
+      order: g.order,
     })),
     tokenReward: checklist.tokenReward,
     badgeName: checklist.badgeName,
@@ -229,6 +235,7 @@ export async function getChecklistDetail(checklistId: string) {
         },
       },
       notesModules: { orderBy: { order: "asc" } },
+      requiredGames: { orderBy: { order: "asc" } },
       completions: {
         orderBy: { submittedAt: "desc" },
         take: 1,

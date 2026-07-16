@@ -135,6 +135,7 @@ export async function duplicateChecklist(gameId: string, checklistId: string): P
         },
       },
       notesModules: { orderBy: { order: "asc" } },
+      requiredGames: { orderBy: { order: "asc" } },
     },
   });
 
@@ -159,6 +160,13 @@ export async function duplicateChecklist(gameId: string, checklistId: string): P
           borderColor: m.borderColor,
           titleBgColor: m.titleBgColor,
           body: m.body,
+        })),
+      },
+      requiredGames: {
+        create: original.requiredGames.map((g) => ({
+          title: g.title,
+          url: g.url,
+          order: g.order,
         })),
       },
       tabs: {
@@ -269,10 +277,17 @@ const importNotesModuleSchema = z.object({
   body: z.string().nullable().optional(),
 });
 
+const importRequiredGameSchema = z.object({
+  title: z.string().min(1),
+  url: z.string().nullable().optional(),
+  order: z.number().optional(),
+});
+
 const importChecklistSchema = z.object({
   name: z.string().min(1),
   description: z.string().nullable().optional(),
   notesModules: z.array(importNotesModuleSchema).default([]),
+  requiredGames: z.array(importRequiredGameSchema).default([]),
   tokenReward: z.number().nullable().optional(),
   badgeName: z.string().nullable().optional(),
   badgeIconUrl: z.string().nullable().optional(),
@@ -348,6 +363,13 @@ export async function importChecklist(
           borderColor: m.borderColor ?? null,
           titleBgColor: m.titleBgColor ?? null,
           body: m.body ?? null,
+        })),
+      },
+      requiredGames: {
+        create: data.requiredGames.map((g, index) => ({
+          title: g.title,
+          url: g.url ?? null,
+          order: g.order ?? index,
         })),
       },
       tabs: {
@@ -463,6 +485,44 @@ export async function reorderNotesModules(checklistId: string, orderedIds: strin
   await requireSession();
   await db.$transaction(
     orderedIds.map((id, index) => db.checklistNotesModule.update({ where: { id }, data: { order: index } })),
+  );
+  revalidatePath("/", "layout");
+}
+
+// ---- Required games ----
+
+export type RequiredGameInput = {
+  title?: string;
+  url?: string | null;
+};
+
+export async function createRequiredGame(checklistId: string): Promise<{ id: string }> {
+  await requireSession();
+  const count = await db.checklistRequiredGame.count({ where: { checklistId } });
+  const game = await db.checklistRequiredGame.create({
+    data: { checklistId, title: "New Game", order: count },
+  });
+  revalidatePath("/", "layout");
+  return { id: game.id };
+}
+
+export async function updateRequiredGame(id: string, data: RequiredGameInput): Promise<void> {
+  await requireSession();
+  await db.checklistRequiredGame.update({ where: { id }, data });
+  revalidatePath("/", "layout");
+}
+
+export async function deleteRequiredGame(id: string): Promise<void> {
+  await requireSession();
+  await db.checklistRequiredGame.delete({ where: { id } });
+  revalidatePath("/", "layout");
+}
+
+/** Bulk reorder after a drag-and-drop move of a checklist's required games. */
+export async function reorderRequiredGames(checklistId: string, orderedIds: string[]): Promise<void> {
+  await requireSession();
+  await db.$transaction(
+    orderedIds.map((id, index) => db.checklistRequiredGame.update({ where: { id }, data: { order: index } })),
   );
   revalidatePath("/", "layout");
 }
