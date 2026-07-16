@@ -6,6 +6,7 @@ import { ProgressBar } from "@/components/checklists/progress-bar";
 import { GameCover } from "@/components/games/game-cover";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
+import { normalizeForSearch } from "@/lib/search";
 
 const SPIN_STEP_MS = 90;
 const SWIPE_THRESHOLD_PX = 40;
@@ -45,11 +46,6 @@ const MAX_VISIBLE = 3;
 const X_BASE_GAP = Math.round(CARD_WIDTH * 0.958);
 const X_STEP_GAP = Math.round(CARD_WIDTH * 0.375);
 const Z_STEP = Math.round(CARD_WIDTH * 0.583);
-
-/** Case- and diacritic-insensitive, so "pokemon" matches "Pokémon Red Version". */
-function normalizeForSearch(s: string): string {
-  return s.normalize("NFD").replace(/\p{Diacritic}/gu, "").toLowerCase();
-}
 
 /** Shortest signed distance from `i` to `index` around a ring of size `n`. */
 function ringOffset(i: number, index: number, n: number): number {

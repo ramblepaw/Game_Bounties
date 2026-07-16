@@ -6,6 +6,8 @@ import { toggleItem, setCounterValue, setItemStage } from "@/server/actions/chec
 import { resolveBackgroundStyle, isGradient } from "@/lib/background-style";
 import { fontClassForKey } from "@/lib/fonts";
 import { resolveStage, type StageDef } from "@/lib/stages";
+import { normalizeForSearch } from "@/lib/search";
+import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/cn";
 
 interface ProgressItem {
@@ -385,8 +387,37 @@ export function ChecklistProgressView({ tabs }: { tabs: ProgressTab[] }) {
   const router = useRouter();
   const [, startTransition] = useTransition();
   const [activeTabId, setActiveTabId] = useState(tabs[0]?.id ?? "");
+  const [query, setQuery] = useState("");
 
   const activeTab = tabs.find((t) => t.id === activeTabId) ?? tabs[0];
+
+  const normalizedQuery = normalizeForSearch(query.trim());
+  const isSearching = normalizedQuery.length > 0;
+  // Flattened across every tab -- not just the active one -- since the point
+  // of a whole-checklist search is finding a target without already knowing
+  // which tab it lives on. Only sections with at least one match are kept,
+  // and each keeps only its matching items.
+  const matchedSections = isSearching
+    ? tabs.flatMap((tab) =>
+        tab.sections
+          .map((section) => {
+            const items = section.items.filter(
+              (item) =>
+                normalizeForSearch(item.title).includes(normalizedQuery) ||
+                (item.description && normalizeForSearch(item.description).includes(normalizedQuery)),
+            );
+            if (items.length === 0) return null;
+            return {
+              ...section,
+              // Disambiguate which tab a match came from when there's more than one.
+              name: tabs.length > 1 ? `${tab.title} · ${section.name}` : section.name,
+              items,
+            };
+          })
+          .filter((s): s is ProgressSection => s !== null),
+      )
+    : [];
+  const matchCount = matchedSections.reduce((n, s) => n + s.items.length, 0);
 
   function handleToggle(itemId: string) {
     startTransition(async () => {
@@ -413,58 +444,103 @@ export function ChecklistProgressView({ tabs }: { tabs: ProgressTab[] }) {
 
   return (
     <div className="flex flex-col gap-4">
-      {tabs.length > 1 && (
-        <div className="flex gap-2 overflow-x-auto border-b border-neutral-200 px-1 dark:border-neutral-700">
-          {tabs.map((tab) => {
-            const isActive = activeTab.id === tab.id;
-            return (
-              <button
-                key={tab.id}
-                type="button"
-                onClick={() => setActiveTabId(tab.id)}
-                style={{
-                  backgroundColor: tab.bgColor ?? undefined,
-                  color: tab.textColor ?? undefined,
-                  borderTopColor: isActive ? tab.borderColor ?? "#7c3aed" : "transparent",
-                  fontSize: tab.textSize ? `${tab.textSize}px` : undefined,
-                }}
-                className={cn(
-                  "whitespace-nowrap rounded-t-lg border-t-2 px-4 py-2 text-sm font-bold transition-colors",
-                  isActive ? "bg-violet-100 text-violet-900" : "border-transparent text-neutral-500 hover:text-violet-700",
-                )}
-              >
-                {tab.title}
-              </button>
-            );
-          })}
-        </div>
-      )}
-
-      <div
-        className="rounded-xl p-4"
-        style={{
-          ...(activeTab.canvasBgImageUrl
-            ? { backgroundImage: `url(${activeTab.canvasBgImageUrl})` }
-            : resolveBackgroundStyle(activeTab.canvasBgColor, "#1e1830")),
-          backgroundSize: "cover",
-          backgroundPosition: "center",
-        }}
-      >
-        <div className="grid auto-rows-min grid-cols-4 gap-4">
-          {activeTab.sections.map((section) => (
-            <ModuleCard
-              key={section.id}
-              section={section}
-              onToggle={handleToggle}
-              onSetCounter={handleSetCounter}
-              onSetStage={handleSetStage}
-            />
-          ))}
-          {activeTab.sections.length === 0 && (
-            <p className="col-span-4 text-neutral-500">No modules on this tab yet.</p>
-          )}
-        </div>
+      <div className="flex items-center gap-2">
+        <Input
+          type="text"
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+          placeholder="Search this checklist…"
+          className="max-w-xs"
+        />
+        {isSearching && (
+          <>
+            <span className="whitespace-nowrap text-xs text-neutral-500">
+              {matchCount} match{matchCount === 1 ? "" : "es"}
+            </span>
+            <button
+              type="button"
+              onClick={() => setQuery("")}
+              className="whitespace-nowrap text-xs text-violet-600 hover:underline dark:text-violet-400"
+            >
+              Clear
+            </button>
+          </>
+        )}
       </div>
+
+      {isSearching ? (
+        <div className="rounded-xl p-4" style={resolveBackgroundStyle(null, "#1e1830")}>
+          <div className="grid auto-rows-min grid-cols-4 gap-4">
+            {matchedSections.map((section) => (
+              <ModuleCard
+                key={section.id}
+                section={section}
+                onToggle={handleToggle}
+                onSetCounter={handleSetCounter}
+                onSetStage={handleSetStage}
+              />
+            ))}
+            {matchedSections.length === 0 && (
+              <p className="col-span-4 text-neutral-500">No targets match &ldquo;{query.trim()}&rdquo;.</p>
+            )}
+          </div>
+        </div>
+      ) : (
+        <>
+          {tabs.length > 1 && (
+            <div className="flex gap-2 overflow-x-auto border-b border-neutral-200 px-1 dark:border-neutral-700">
+              {tabs.map((tab) => {
+                const isActive = activeTab.id === tab.id;
+                return (
+                  <button
+                    key={tab.id}
+                    type="button"
+                    onClick={() => setActiveTabId(tab.id)}
+                    style={{
+                      backgroundColor: tab.bgColor ?? undefined,
+                      color: tab.textColor ?? undefined,
+                      borderTopColor: isActive ? tab.borderColor ?? "#7c3aed" : "transparent",
+                      fontSize: tab.textSize ? `${tab.textSize}px` : undefined,
+                    }}
+                    className={cn(
+                      "whitespace-nowrap rounded-t-lg border-t-2 px-4 py-2 text-sm font-bold transition-colors",
+                      isActive ? "bg-violet-100 text-violet-900" : "border-transparent text-neutral-500 hover:text-violet-700",
+                    )}
+                  >
+                    {tab.title}
+                  </button>
+                );
+              })}
+            </div>
+          )}
+
+          <div
+            className="rounded-xl p-4"
+            style={{
+              ...(activeTab.canvasBgImageUrl
+                ? { backgroundImage: `url(${activeTab.canvasBgImageUrl})` }
+                : resolveBackgroundStyle(activeTab.canvasBgColor, "#1e1830")),
+              backgroundSize: "cover",
+              backgroundPosition: "center",
+            }}
+          >
+            <div className="grid auto-rows-min grid-cols-4 gap-4">
+              {activeTab.sections.map((section) => (
+                <ModuleCard
+                  key={section.id}
+                  section={section}
+                  onToggle={handleToggle}
+                  onSetCounter={handleSetCounter}
+                  onSetStage={handleSetStage}
+                />
+              ))}
+              {activeTab.sections.length === 0 && (
+                <p className="col-span-4 text-neutral-500">No modules on this tab yet.</p>
+              )}
+            </div>
+          </div>
+        </>
+      )}
     </div>
   );
 }
