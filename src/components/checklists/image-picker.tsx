@@ -46,9 +46,12 @@ export function ImagePicker({
 
   async function handleUrlBlur(e: React.FocusEvent<HTMLInputElement>) {
     const next = e.target.value;
-    if (next === value) return;
 
     // Already one of our own hosted paths (or cleared) -- nothing to fetch.
+    // Deliberately not short-circuited on `next === value`: a still-raw
+    // external URL that hasn't changed is exactly the case that needs a
+    // retry (e.g. re-blurring a pre-existing item whose image was pasted
+    // before this re-hosting logic existed).
     if (!next || !/^https?:\/\//i.test(next)) {
       onChange(next);
       return;
