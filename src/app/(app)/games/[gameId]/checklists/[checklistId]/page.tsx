@@ -19,6 +19,7 @@ import { ChecklistProgressView } from "@/components/checklists/checklist-progres
 import { ChecklistStatsPanel } from "@/components/checklists/checklist-stats-panel";
 import { ChecklistNotesPanel } from "@/components/checklists/checklist-notes-panel";
 import { ChecklistRequiredGamesPanel } from "@/components/checklists/checklist-required-games-panel";
+import { ChecklistBoxesPanel, type BoxItem } from "@/components/checklists/checklist-boxes-panel";
 import { ChecklistViewTabs } from "@/components/checklists/checklist-view-tabs";
 import { SubmitApprovalForm } from "@/components/checklists/submit-approval-form";
 import { SessionTimer } from "@/components/sessions/session-timer";
@@ -58,6 +59,14 @@ export default async function ChecklistProgressPage({
       items: withItemProgress(section.items, itemProgress),
     })),
   }));
+
+  // Flattened in the same tab/module/item display order, each item carrying
+  // its own module's stages -- so the box view can re-chunk into fixed-size
+  // groups (e.g. 30, to mirror a Pokemon game's PC box) independent of
+  // whatever module grouping the stats page relies on.
+  const boxItems: BoxItem[] = progressTabs.flatMap((tab) =>
+    tab.sections.flatMap((section) => section.items.map((item) => ({ ...item, stages: section.stages }))),
+  );
 
   const progress = checklistProgress({ tabs: progressTabs });
   const tabProgress = progressTabs.map((tab) => ({
@@ -153,6 +162,9 @@ export default async function ChecklistProgressPage({
         checklistSlot={<ChecklistProgressView tabs={progressTabs} />}
         notesSlot={<ChecklistNotesPanel notesModules={checklist.notesModules} />}
         gamesSlot={<ChecklistRequiredGamesPanel requiredGames={checklist.requiredGames} />}
+        boxesSlot={
+          checklist.boxSize ? <ChecklistBoxesPanel items={boxItems} boxSize={checklist.boxSize} /> : undefined
+        }
         statsSlot={
           <ChecklistStatsPanel
             checklistId={checklistId}

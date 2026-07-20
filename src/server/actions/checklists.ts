@@ -105,6 +105,7 @@ export async function updateChecklist(
     tokenReward?: number | null;
     badgeName?: string | null;
     badgeIconUrl?: string | null;
+    boxSize?: number | null;
   },
 ): Promise<void> {
   await requireSession();
@@ -150,6 +151,7 @@ export async function duplicateChecklist(gameId: string, checklistId: string): P
       tokenReward: original.tokenReward,
       badgeName: original.badgeName,
       badgeIconUrl: original.badgeIconUrl,
+      boxSize: original.boxSize,
       notesModules: {
         create: original.notesModules.map((m) => ({
           title: m.title,
@@ -291,6 +293,7 @@ const importChecklistSchema = z.object({
   tokenReward: z.number().nullable().optional(),
   badgeName: z.string().nullable().optional(),
   badgeIconUrl: z.string().nullable().optional(),
+  boxSize: z.number().nullable().optional(),
   colorPresets: z.array(z.object({ name: z.string().min(1), color: z.string().min(1) })).default([]),
   images: z.record(z.string(), z.string()).default({}),
   tabs: z.array(importTabSchema).min(1, "Must have at least one tab."),
@@ -352,6 +355,7 @@ export async function importChecklist(
       tokenReward: data.tokenReward ?? null,
       badgeName: data.badgeName ?? null,
       badgeIconUrl: remap(data.badgeIconUrl),
+      boxSize: data.boxSize ?? null,
       colorPresets: { create: data.colorPresets },
       notesModules: {
         create: data.notesModules.map((m, index) => ({

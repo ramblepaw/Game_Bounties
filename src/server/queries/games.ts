@@ -136,6 +136,7 @@ export async function getChecklistExportData(checklistId: string) {
     tokenReward: checklist.tokenReward,
     badgeName: checklist.badgeName,
     badgeIconUrl: checklist.badgeIconUrl,
+    boxSize: checklist.boxSize,
     colorPresets: checklist.colorPresets.map((p) => ({ name: p.name, color: p.color })),
     images,
     tabs: checklist.tabs.map((tab) => ({

@@ -125,6 +125,7 @@ interface DesignerChecklist {
   tokenReward: number | null;
   badgeName: string | null;
   badgeIconUrl: string | null;
+  boxSize: number | null;
   tabs: DesignerTab[];
   notesModules: DesignerNotesModule[];
   requiredGames: DesignerRequiredGame[];
@@ -210,6 +211,7 @@ export function ChecklistDesigner({
   }
   const [name, setName] = useState(checklist.name);
   const [tokenReward, setTokenReward] = useState(checklist.tokenReward?.toString() ?? "");
+  const [boxSize, setBoxSize] = useState(checklist.boxSize?.toString() ?? "");
   const [badgeName, setBadgeName] = useState(checklist.badgeName ?? "");
   const [badgeIconUrl, setBadgeIconUrl] = useState(checklist.badgeIconUrl ?? "");
   const [colorPresets, setColorPresets] = useState(initialColorPresets);
@@ -974,6 +976,22 @@ export function ChecklistDesigner({
               const parsed = tokenReward.trim() === "" ? null : Math.max(0, parseInt(tokenReward, 10) || 0);
               updateChecklist(checklist.id, { tokenReward: parsed }).then(refresh);
             }}
+            className="w-16 rounded border border-neutral-300 px-1.5 py-1 text-sm text-neutral-900"
+          />
+        </label>
+        <label className="flex items-center gap-2 text-xs text-neutral-500">
+          Box size
+          <input
+            type="number"
+            min={1}
+            value={boxSize}
+            placeholder="e.g. 30"
+            onChange={(e) => setBoxSize(e.target.value)}
+            onBlur={() => {
+              const parsed = boxSize.trim() === "" ? null : Math.max(1, parseInt(boxSize, 10) || 1);
+              updateChecklist(checklist.id, { boxSize: parsed }).then(refresh);
+            }}
+            title="Adds a &quot;Boxes&quot; view that groups targets into fixed-size chunks (e.g. 30 to mirror a Pokemon PC box). Leave blank to hide it."
             className="w-16 rounded border border-neutral-300 px-1.5 py-1 text-sm text-neutral-900"
           />
         </label>

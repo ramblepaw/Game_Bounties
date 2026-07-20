@@ -96,6 +96,11 @@ model Checklist {
   // Custom badge awarded on approval. Null = fall back to the generic badge.
   badgeName    String?
   badgeIconUrl String?
+  // When set, enables a "Boxes" view that re-chunks every item (in display
+  // order, across all tabs/modules) into fixed-size groups -- e.g. 30 to
+  // mirror a Pokemon game's PC box capacity. Null hides that view entirely,
+  // since most checklists have no such real-world storage-unit analog.
+  boxSize Int?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
