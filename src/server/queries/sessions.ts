@@ -1,4 +1,5 @@
 import "server-only";
+import { subDays, formatISO, differenceInCalendarDays } from "date-fns";
 import { db } from "@/lib/db";
 
 export async function getActiveSessionFor(userId: string) {
@@ -47,28 +48,33 @@ export async function sessionCountForChecklist(checklistId: string, userId: stri
   return db.playSession.count({ where: { checklistId, userId, durationMinutes: { not: null } } });
 }
 
-/** Day-by-day playtime for one user on one checklist, for a personal "your time" chart. */
-export async function playtimeByDayForChecklist(checklistId: string, userId: string, days = 30) {
-  const since = new Date();
-  since.setDate(since.getDate() - days);
-
+/**
+ * Day-by-day playtime for one user on one checklist, from their very first
+ * session through today -- not a fixed lookback window, for the same reason
+ * as completedByDayForChecklist: a checklist can take months, and an
+ * arbitrary cutoff either hides most of its history or starts well before
+ * any real activity happened.
+ */
+export async function playtimeByDayForChecklist(checklistId: string, userId: string) {
   const sessions = await db.playSession.findMany({
-    where: { checklistId, userId, durationMinutes: { not: null }, startedAt: { gte: since } },
+    where: { checklistId, userId, durationMinutes: { not: null } },
     select: { startedAt: true, durationMinutes: true },
+    orderBy: { startedAt: "asc" },
   });
+  if (sessions.length === 0) return [];
 
   const totals = new Map<string, number>();
   for (const s of sessions) {
-    const key = s.startedAt.toISOString().slice(0, 10);
+    const key = formatISO(s.startedAt, { representation: "date" });
     totals.set(key, (totals.get(key) ?? 0) + (s.durationMinutes ?? 0));
   }
 
+  const firstDay = sessions[0].startedAt;
+  const totalDays = differenceInCalendarDays(new Date(), firstDay) + 1;
   const result: { date: string; minutes: number }[] = [];
-  for (let i = days - 1; i >= 0; i--) {
-    const d = new Date();
-    d.setDate(d.getDate() - i);
-    const key = d.toISOString().slice(0, 10);
-    result.push({ date: key, minutes: totals.get(key) ?? 0 });
+  for (let i = totalDays - 1; i >= 0; i--) {
+    const date = formatISO(subDays(new Date(), i), { representation: "date" });
+    result.push({ date, minutes: totals.get(date) ?? 0 });
   }
   return result;
 }

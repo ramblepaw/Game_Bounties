@@ -1,5 +1,5 @@
 import "server-only";
-import { subDays, formatISO } from "date-fns";
+import { subDays, formatISO, differenceInCalendarDays } from "date-fns";
 import { db } from "@/lib/db";
 
 export type ItemProgressData = {
@@ -31,18 +31,24 @@ export function withItemProgress<T extends { id: string }>(
   return items.map((item) => ({ ...item, ...(progress.get(item.id) ?? NO_PROGRESS) }));
 }
 
-/** Day-by-day completion counts for one user on one checklist, for a personal "your pace" chart. */
-export async function completedByDayForChecklist(checklistId: string, userId: string, days = 30) {
-  const since = subDays(new Date(), days);
+/**
+ * Day-by-day completion counts for one user on one checklist, from their very
+ * first completion through today -- not a fixed lookback window, since a
+ * checklist can take months and an arbitrary cutoff would either hide most of
+ * its history or start well before any real activity happened.
+ */
+export async function completedByDayForChecklist(checklistId: string, userId: string) {
   const rows = await db.checklistItemProgress.findMany({
     where: {
       userId,
       isComplete: true,
-      completedAt: { gte: since },
+      completedAt: { not: null },
       item: { section: { tab: { checklistId } } },
     },
     select: { completedAt: true },
+    orderBy: { completedAt: "asc" },
   });
+  if (rows.length === 0) return [];
 
   const counts = new Map<string, number>();
   for (const row of rows) {
@@ -51,8 +57,10 @@ export async function completedByDayForChecklist(checklistId: string, userId: st
     counts.set(key, (counts.get(key) ?? 0) + 1);
   }
 
+  const firstDay = rows[0].completedAt as Date;
+  const totalDays = differenceInCalendarDays(new Date(), firstDay) + 1;
   const result: { date: string; completed: number }[] = [];
-  for (let i = days - 1; i >= 0; i--) {
+  for (let i = totalDays - 1; i >= 0; i--) {
     const date = formatISO(subDays(new Date(), i), { representation: "date" });
     result.push({ date, completed: counts.get(date) ?? 0 });
   }

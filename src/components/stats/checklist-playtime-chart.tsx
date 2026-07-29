@@ -18,7 +18,10 @@ export function ChecklistPlaytimeChart({ data }: { data: { date: string; minutes
           label={{ value: "minutes", angle: -90, position: "insideLeft", fill: "#9ca3af" }}
         />
         <Tooltip />
-        <Line type="monotone" dataKey="minutes" stroke="#7c3aed" strokeWidth={2} dot={false} />
+        {/* `linear` (not `monotone`) so each day reads as its own discrete value --
+            a smoothed curve between points can look like minutes are building on
+            each other day-to-day instead of resetting each day. */}
+        <Line type="linear" dataKey="minutes" stroke="#7c3aed" strokeWidth={2} dot={false} />
       </LineChart>
     </ResponsiveContainer>
   );
