@@ -3,6 +3,10 @@
 import { CartesianGrid, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 
 export function VelocityChart({ data }: { data: { date: string; completed: number }[] }) {
+  if (data.every((d) => d.completed === 0)) {
+    return <p className="text-neutral-500">No completions logged yet.</p>;
+  }
+
   return (
     <ResponsiveContainer width="100%" height={220}>
       <LineChart data={data} margin={{ left: 0, right: 16 }}>

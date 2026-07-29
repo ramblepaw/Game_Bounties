@@ -1,6 +1,6 @@
 "use client";
 
-import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
+import { CartesianGrid, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 
 export function ChecklistPlaytimeChart({ data }: { data: { date: string; minutes: number }[] }) {
   if (data.every((d) => d.minutes === 0)) {
@@ -9,7 +9,7 @@ export function ChecklistPlaytimeChart({ data }: { data: { date: string; minutes
 
   return (
     <ResponsiveContainer width="100%" height={220}>
-      <BarChart data={data} margin={{ left: 0, right: 16 }}>
+      <LineChart data={data} margin={{ left: 0, right: 16 }}>
         <CartesianGrid strokeDasharray="3 3" stroke="#9ca3af33" />
         <XAxis dataKey="date" tick={{ fontSize: 10, fill: "#9ca3af" }} interval={4} />
         <YAxis
@@ -18,8 +18,8 @@ export function ChecklistPlaytimeChart({ data }: { data: { date: string; minutes
           label={{ value: "minutes", angle: -90, position: "insideLeft", fill: "#9ca3af" }}
         />
         <Tooltip />
-        <Bar dataKey="minutes" fill="#7c3aed" radius={[4, 4, 0, 0]} />
-      </BarChart>
+        <Line type="monotone" dataKey="minutes" stroke="#7c3aed" strokeWidth={2} dot={false} />
+      </LineChart>
     </ResponsiveContainer>
   );
 }

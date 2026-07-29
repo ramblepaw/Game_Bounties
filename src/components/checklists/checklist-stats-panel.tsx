@@ -3,6 +3,7 @@ import type { CompletionEstimate } from "@/lib/estimation";
 import { ProgressBar } from "@/components/checklists/progress-bar";
 import { TabCompletionTable } from "@/components/stats/tab-completion-table";
 import { ChecklistPlaytimeChart } from "@/components/stats/checklist-playtime-chart";
+import { VelocityChart } from "@/components/stats/velocity-chart";
 import { SessionRow } from "@/app/(app)/sessions/session-row";
 
 type StatsSession = {
@@ -26,6 +27,7 @@ export function ChecklistStatsPanel({
   sessions,
   tabProgress,
   playtimeByDay,
+  completedByDay,
 }: {
   checklistId: string;
   checklistName: string;
@@ -37,6 +39,7 @@ export function ChecklistStatsPanel({
   sessions: StatsSession[];
   tabProgress: { tab: string; percent: number }[];
   playtimeByDay: { date: string; minutes: number }[];
+  completedByDay: { date: string; completed: number }[];
 }) {
   const checklists = [{ id: checklistId, name: checklistName, game: { title: gameTitle } }];
 
@@ -83,28 +86,41 @@ export function ChecklistStatsPanel({
         <ChecklistPlaytimeChart data={playtimeByDay} />
       </div>
 
-      <div>
-        <h3 className="mb-2 font-medium text-fuchsia-700 dark:text-fuchsia-400">Your session log</h3>
-        {sessions.length === 0 ? (
-          <p className="text-sm text-neutral-500">No sessions logged for this checklist yet.</p>
-        ) : (
-          <table className="w-full text-left text-sm">
-            <thead>
-              <tr className="border-b border-violet-200 text-neutral-500 dark:border-violet-800">
-                <th className="py-2 font-medium">Game — Checklist</th>
-                <th className="py-2 font-medium">Date</th>
-                <th className="py-2 font-medium">Duration</th>
-                <th className="py-2 font-medium">Notes</th>
-                <th className="py-2" />
-              </tr>
-            </thead>
-            <tbody>
-              {sessions.map((s) => (
-                <SessionRow key={s.id} session={s} checklists={checklists} showPlayer={false} />
-              ))}
-            </tbody>
-          </table>
-        )}
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+        <div>
+          <h3 className="mb-2 font-medium text-fuchsia-700 dark:text-fuchsia-400">Your session log</h3>
+          {sessions.length === 0 ? (
+            <p className="text-sm text-neutral-500">No sessions logged for this checklist yet.</p>
+          ) : (
+            <table className="w-full text-left text-sm">
+              <thead>
+                <tr className="border-b border-violet-200 text-neutral-500 dark:border-violet-800">
+                  <th className="py-2 font-medium">Date</th>
+                  <th className="py-2 font-medium">Duration</th>
+                  <th className="py-2 font-medium">Notes</th>
+                  <th className="py-2" />
+                </tr>
+              </thead>
+              <tbody>
+                {sessions.map((s) => (
+                  <SessionRow key={s.id} session={s} checklists={checklists} showPlayer={false} showChecklist={false} />
+                ))}
+              </tbody>
+            </table>
+          )}
+        </div>
+
+        <div>
+          <div className="mb-2 flex items-center justify-between gap-2">
+            <h3 className="font-medium text-fuchsia-700 dark:text-fuchsia-400">Your targets completed — last 30 days</h3>
+            {estimate.velocityPerDay != null && (
+              <span className="whitespace-nowrap text-xs text-neutral-500">
+                Current average: <span className="font-semibold text-violet-900 dark:text-violet-200">{estimate.velocityPerDay.toFixed(2)}</span>/day
+              </span>
+            )}
+          </div>
+          <VelocityChart data={completedByDay} />
+        </div>
       </div>
     </div>
   );
