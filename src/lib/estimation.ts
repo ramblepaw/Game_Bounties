@@ -19,7 +19,6 @@ export async function estimateCompletionDate(checklistId: string, userId: string
   const checklist = await db.checklist.findUnique({
     where: { id: checklistId },
     select: {
-      createdAt: true,
       tabs: {
         select: {
           sections: {
@@ -57,8 +56,6 @@ export async function estimateCompletionDate(checklistId: string, userId: string
 
   const now = new Date();
   const windowStart = addDays(now, -WINDOW_DAYS);
-  const sinceCreation = Math.max(1, differenceInCalendarDays(now, checklist.createdAt));
-  const effectiveWindowDays = Math.min(WINDOW_DAYS, sinceCreation);
 
   const inWindow = completedItems.filter((i) => i.completedAt >= windowStart);
   const distinctDays = new Set(inWindow.map((i) => i.completedAt.toDateString())).size;
@@ -66,6 +63,17 @@ export async function estimateCompletionDate(checklistId: string, userId: string
   if (completedItems.length < MIN_COMPLETED_ITEMS || distinctDays < MIN_DISTINCT_DAYS) {
     return { projectedDate: null, velocityPerDay: null, confidence: "none" };
   }
+
+  // The denominator is days since the *earliest completion in the window*,
+  // not days since the checklist was created -- a checklist can sit around
+  // for a while before anyone actually starts working through it, and
+  // dividing by that idle time would silently understate the real pace.
+  const earliestInWindow = inWindow.reduce(
+    (min, i) => (i.completedAt < min ? i.completedAt : min),
+    inWindow[0].completedAt,
+  );
+  const daysSinceEarliestActivity = differenceInCalendarDays(now, earliestInWindow) + 1;
+  const effectiveWindowDays = Math.min(WINDOW_DAYS, daysSinceEarliestActivity);
 
   const unitsInWindow = inWindow.reduce((sum, i) => sum + itemWeight(i), 0);
   const velocityPerDay = unitsInWindow / effectiveWindowDays;
