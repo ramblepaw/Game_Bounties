@@ -26,32 +26,38 @@ function toCumulative(data: { date: string; completed: number }[]): { date: stri
  */
 export function ObjectivesCompletedChart({ data }: { data: { date: string; completed: number }[] }) {
   const [scale, setScale] = useState<Scale>("All");
+  const [collapsed, setCollapsed] = useState(false);
   const cumulative = toCumulative(data);
   const visible = scale === "All" ? cumulative : cumulative.slice(-scale);
 
   return (
     <div className="flex flex-col gap-2">
       <div className="flex items-center justify-between gap-2">
-        <h3 className="font-medium text-fuchsia-700 dark:text-fuchsia-400">Objectives completed</h3>
-        <div className="flex gap-1">
-          {SCALES.map((s) => (
-            <button
-              key={s}
-              type="button"
-              onClick={() => setScale(s)}
-              className={cn(
-                "rounded px-2 py-1 text-xs font-medium transition-colors",
-                scale === s
-                  ? "bg-violet-600 text-white"
-                  : "text-neutral-500 hover:bg-violet-100 dark:hover:bg-violet-950/40",
-              )}
-            >
-              {s === "All" ? "All" : `${s}d`}
-            </button>
-          ))}
+        <div onClick={() => setCollapsed((c) => !c)} className="flex cursor-pointer items-center gap-2">
+          <span className="text-xs text-neutral-400">{collapsed ? "▸" : "▾"}</span>
+          <h3 className="font-medium text-fuchsia-700 dark:text-fuchsia-400">Objectives completed</h3>
         </div>
+        {!collapsed && (
+          <div className="flex gap-1">
+            {SCALES.map((s) => (
+              <button
+                key={s}
+                type="button"
+                onClick={() => setScale(s)}
+                className={cn(
+                  "rounded px-2 py-1 text-xs font-medium transition-colors",
+                  scale === s
+                    ? "bg-violet-600 text-white"
+                    : "text-neutral-500 hover:bg-violet-100 dark:hover:bg-violet-950/40",
+                )}
+              >
+                {s === "All" ? "All" : `${s}d`}
+              </button>
+            ))}
+          </div>
+        )}
       </div>
-      <VelocityChart data={visible} yLabel="objectives completed" />
+      {!collapsed && <VelocityChart data={visible} yLabel="objectives completed" />}
     </div>
   );
 }

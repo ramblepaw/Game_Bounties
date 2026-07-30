@@ -1,6 +1,8 @@
 import "server-only";
-import { subDays, formatISO, differenceInCalendarDays } from "date-fns";
+import { subDays, differenceInCalendarDays } from "date-fns";
 import { db } from "@/lib/db";
+import { formatISODateLocal } from "@/lib/format";
+import { zonedDateKey, nowInTimeZone, toCalendarDay } from "@/lib/timezone";
 
 export type ItemProgressData = {
   isComplete: boolean;
@@ -37,7 +39,7 @@ export function withItemProgress<T extends { id: string }>(
  * checklist can take months and an arbitrary cutoff would either hide most of
  * its history or start well before any real activity happened.
  */
-export async function completedByDayForChecklist(checklistId: string, userId: string) {
+export async function completedByDayForChecklist(checklistId: string, userId: string, timeZone: string) {
   const rows = await db.checklistItemProgress.findMany({
     where: {
       userId,
@@ -53,15 +55,16 @@ export async function completedByDayForChecklist(checklistId: string, userId: st
   const counts = new Map<string, number>();
   for (const row of rows) {
     if (!row.completedAt) continue;
-    const key = formatISO(row.completedAt, { representation: "date" });
+    const key = zonedDateKey(row.completedAt, timeZone);
     counts.set(key, (counts.get(key) ?? 0) + 1);
   }
 
-  const firstDay = rows[0].completedAt as Date;
-  const totalDays = differenceInCalendarDays(new Date(), firstDay) + 1;
+  const today = nowInTimeZone(timeZone);
+  const firstDay = toCalendarDay(rows[0].completedAt as Date, timeZone);
+  const totalDays = differenceInCalendarDays(today, firstDay) + 1;
   const result: { date: string; completed: number }[] = [];
   for (let i = totalDays - 1; i >= 0; i--) {
-    const date = formatISO(subDays(new Date(), i), { representation: "date" });
+    const date = formatISODateLocal(subDays(today, i));
     result.push({ date, completed: counts.get(date) ?? 0 });
   }
   return result;

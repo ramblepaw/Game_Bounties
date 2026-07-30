@@ -1,16 +1,24 @@
+import { redirect } from "next/navigation";
 import { db } from "@/lib/db";
 import { listRecentSessions } from "@/server/queries/sessions";
+import { getSession, getCurrentUser } from "@/lib/auth";
+import { DEFAULT_TIMEZONE } from "@/lib/timezone";
 import { ManualSessionForm } from "./manual-session-form";
 import { SessionRow } from "./session-row";
 
 export default async function SessionsPage() {
-  const [checklists, sessions] = await Promise.all([
+  const session = await getSession();
+  if (!session) redirect("/login");
+
+  const [checklists, sessions, user] = await Promise.all([
     db.checklist.findMany({
       orderBy: { name: "asc" },
       select: { id: true, name: true, game: { select: { title: true } } },
     }),
     listRecentSessions(),
+    getCurrentUser(),
   ]);
+  const timeZone = user?.timezone ?? DEFAULT_TIMEZONE;
 
   return (
     <div className="flex flex-col gap-6">
@@ -38,7 +46,7 @@ export default async function SessionsPage() {
           </thead>
           <tbody>
             {sessions.map((s) => (
-              <SessionRow key={s.id} session={s} checklists={checklists} />
+              <SessionRow key={s.id} session={s} checklists={checklists} timeZone={timeZone} />
             ))}
           </tbody>
         </table>

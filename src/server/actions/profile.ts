@@ -4,6 +4,7 @@ import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { getSession } from "@/lib/auth";
 import { db } from "@/lib/db";
+import { isValidTimeZone } from "@/lib/timezone";
 
 export async function updateActiveChecklistLimit(limit: number | null): Promise<void> {
   const session = await getSession();
@@ -12,6 +13,18 @@ export async function updateActiveChecklistLimit(limit: number | null): Promise<
   await db.user.update({
     where: { id: session.userId },
     data: { activeChecklistLimit: limit },
+  });
+  revalidatePath("/", "layout");
+}
+
+export async function updateTimezone(timezone: string): Promise<void> {
+  const session = await getSession();
+  if (!session) redirect("/login");
+  if (!isValidTimeZone(timezone)) throw new Error("Invalid timezone.");
+
+  await db.user.update({
+    where: { id: session.userId },
+    data: { timezone },
   });
   revalidatePath("/", "layout");
 }

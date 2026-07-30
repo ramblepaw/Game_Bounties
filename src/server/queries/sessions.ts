@@ -1,6 +1,8 @@
 import "server-only";
-import { subDays, formatISO, differenceInCalendarDays } from "date-fns";
+import { subDays, differenceInCalendarDays } from "date-fns";
 import { db } from "@/lib/db";
+import { formatISODateLocal } from "@/lib/format";
+import { zonedDateKey, nowInTimeZone, toCalendarDay } from "@/lib/timezone";
 
 export async function getActiveSessionFor(userId: string) {
   return db.playSession.findFirst({
@@ -55,7 +57,7 @@ export async function sessionCountForChecklist(checklistId: string, userId: stri
  * arbitrary cutoff either hides most of its history or starts well before
  * any real activity happened.
  */
-export async function playtimeByDayForChecklist(checklistId: string, userId: string) {
+export async function playtimeByDayForChecklist(checklistId: string, userId: string, timeZone: string) {
   const sessions = await db.playSession.findMany({
     where: { checklistId, userId, durationMinutes: { not: null } },
     select: { startedAt: true, durationMinutes: true },
@@ -65,15 +67,16 @@ export async function playtimeByDayForChecklist(checklistId: string, userId: str
 
   const totals = new Map<string, number>();
   for (const s of sessions) {
-    const key = formatISO(s.startedAt, { representation: "date" });
+    const key = zonedDateKey(s.startedAt, timeZone);
     totals.set(key, (totals.get(key) ?? 0) + (s.durationMinutes ?? 0));
   }
 
-  const firstDay = sessions[0].startedAt;
-  const totalDays = differenceInCalendarDays(new Date(), firstDay) + 1;
+  const today = nowInTimeZone(timeZone);
+  const firstDay = toCalendarDay(sessions[0].startedAt, timeZone);
+  const totalDays = differenceInCalendarDays(today, firstDay) + 1;
   const result: { date: string; minutes: number }[] = [];
   for (let i = totalDays - 1; i >= 0; i--) {
-    const date = formatISO(subDays(new Date(), i), { representation: "date" });
+    const date = formatISODateLocal(subDays(today, i));
     result.push({ date, minutes: totals.get(date) ?? 0 });
   }
   return result;

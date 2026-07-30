@@ -3,7 +3,8 @@
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { updateSession, deleteSession, stopSession } from "@/server/actions/play-sessions";
-import { formatMinutes } from "@/lib/format";
+import { formatMinutes, formatShortDate } from "@/lib/format";
+import { zonedDateKey, toCalendarDay } from "@/lib/timezone";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 
@@ -22,13 +23,19 @@ type SessionRowData = {
 export function SessionRow({
   session,
   checklists,
+  timeZone,
   showPlayer = true,
   showChecklist = true,
+  averageMinutesPerDay,
 }: {
   session: SessionRowData;
   checklists: ChecklistOption[];
+  /** Viewer's own timezone -- determines which calendar day this session displays under. */
+  timeZone: string;
   showPlayer?: boolean;
   showChecklist?: boolean;
+  /** Running average minutes/day as of this session's date -- omit the column entirely when not provided. */
+  averageMinutesPerDay?: number;
 }) {
   const router = useRouter();
   const [editing, setEditing] = useState(false);
@@ -55,7 +62,10 @@ export function SessionRow({
   if (editing) {
     return (
       <tr className="border-b border-neutral-100 dark:border-neutral-800">
-        <td colSpan={4 + (showPlayer ? 1 : 0) + (showChecklist ? 1 : 0)} className="py-2">
+        <td
+          colSpan={4 + (showPlayer ? 1 : 0) + (showChecklist ? 1 : 0) + (averageMinutesPerDay != null ? 1 : 0)}
+          className="py-2"
+        >
           <form action={handleSave} className="flex flex-wrap items-end gap-2">
             <select
               name="checklistId"
@@ -71,7 +81,7 @@ export function SessionRow({
             <Input
               name="date"
               type="date"
-              defaultValue={session.startedAt.toISOString().slice(0, 10)}
+              defaultValue={zonedDateKey(session.startedAt, timeZone)}
               required
               className="w-40"
             />
@@ -122,10 +132,11 @@ export function SessionRow({
         </td>
       )}
       {showPlayer && <td className="py-2">{session.user.displayName}</td>}
-      <td className="py-2">{session.startedAt.toLocaleDateString()}</td>
+      <td className="py-2">{formatShortDate(toCalendarDay(session.startedAt, timeZone))}</td>
       <td className="py-2">
         {session.durationMinutes != null ? formatMinutes(session.durationMinutes) : "in progress"}
       </td>
+      {averageMinutesPerDay != null && <td className="py-2">{formatMinutes(Math.round(averageMinutesPerDay))}</td>}
       <td className="py-2 text-neutral-500">{session.notes}</td>
       <td className="py-2 text-right">
         <div className="flex justify-end gap-2">

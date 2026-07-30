@@ -14,7 +14,10 @@ import {
 import { listActiveChecklistIdsFor } from "@/server/queries/active-checklists";
 import { estimateCompletionDate } from "@/lib/estimation";
 import { DEFAULT_TOKENS_PER_COMPLETION } from "@/lib/token-economy";
-import { getSession } from "@/lib/auth";
+import { formatShortDate } from "@/lib/format";
+import { DEFAULT_TIMEZONE } from "@/lib/timezone";
+import { getSession, getCurrentUser } from "@/lib/auth";
+import { ProgressBar } from "@/components/checklists/progress-bar";
 import { ChecklistProgressView } from "@/components/checklists/checklist-progress-view";
 import { ChecklistStatsPanel } from "@/components/checklists/checklist-stats-panel";
 import { ChecklistNotesPanel } from "@/components/checklists/checklist-notes-panel";
@@ -35,8 +38,9 @@ export default async function ChecklistProgressPage({
   const session = await getSession();
   if (!session) redirect("/login");
 
-  const checklist = await getChecklistDetail(checklistId);
+  const [checklist, currentUser] = await Promise.all([getChecklistDetail(checklistId), getCurrentUser()]);
   if (!checklist) notFound();
+  const timeZone = currentUser?.timezone ?? DEFAULT_TIMEZONE;
 
   const [activeSession, activeIds, totalMinutes, sessionCount, estimate, sessions, playtimeByDay, completedByDay] =
     await Promise.all([
@@ -44,10 +48,10 @@ export default async function ChecklistProgressPage({
       listActiveChecklistIdsFor(session.userId),
       totalPlaytimeMinutesForChecklist(checklistId, session.userId),
       sessionCountForChecklist(checklistId, session.userId),
-      estimateCompletionDate(checklistId, session.userId),
+      estimateCompletionDate(checklistId, session.userId, timeZone),
       listSessionsForChecklist(checklistId, session.userId),
-      playtimeByDayForChecklist(checklistId, session.userId),
-      completedByDayForChecklist(checklistId, session.userId),
+      playtimeByDayForChecklist(checklistId, session.userId, timeZone),
+      completedByDayForChecklist(checklistId, session.userId, timeZone),
     ]);
 
   const itemIds = checklist.tabs.flatMap((t) => t.sections.flatMap((s) => s.items.map((i) => i.id)));
@@ -159,6 +163,18 @@ export default async function ChecklistProgressPage({
           />
         )}
 
+      <div className="flex flex-col gap-2">
+        <ProgressBar percent={progress.percent} />
+        <p className="text-xs text-neutral-500">
+          {progress.completed} / {progress.total} complete ({progress.percent}%)
+        </p>
+        <p className="text-xs text-neutral-500">
+          {estimate.projectedDate
+            ? `Estimated completion: ${formatShortDate(estimate.projectedDate)}`
+            : "Not enough progress history yet to estimate a completion date."}
+        </p>
+      </div>
+
       <ChecklistViewTabs
         checklistSlot={<ChecklistProgressView tabs={progressTabs} />}
         notesSlot={<ChecklistNotesPanel notesModules={checklist.notesModules} />}
@@ -171,10 +187,10 @@ export default async function ChecklistProgressPage({
             checklistId={checklistId}
             checklistName={checklist.name}
             gameTitle={checklist.game.title}
+            timeZone={timeZone}
             totalMinutes={totalMinutes}
             sessionCount={sessionCount}
             progress={progress}
-            estimate={estimate}
             sessions={sessions}
             tabProgress={tabProgress}
             playtimeByDay={playtimeByDay}

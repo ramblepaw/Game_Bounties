@@ -9,6 +9,7 @@ import { isTokenless } from "@/lib/token-economy";
 import { BadgeShelf } from "@/components/badges/badge-shelf";
 import { StopRunningButton } from "@/components/checklists/stop-running-button";
 import { EditableActiveLimit } from "./editable-active-limit";
+import { EditableTimezone } from "./editable-timezone";
 import { AccountSettings } from "./account-settings";
 
 export default async function ProfilePage() {
@@ -111,6 +112,7 @@ export default async function ProfilePage() {
 
       <section className="flex flex-col gap-3">
         <h2 className="font-medium text-fuchsia-700 dark:text-fuchsia-400">Account settings</h2>
+        <EditableTimezone timezone={user.timezone} />
         <AccountSettings username={user.username} displayName={user.displayName} />
       </section>
     </div>
