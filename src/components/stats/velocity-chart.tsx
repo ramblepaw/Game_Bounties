@@ -18,10 +18,13 @@ export function VelocityChart({ data, yLabel }: { data: { date: string; complete
           label={yLabel ? { value: yLabel, angle: -90, position: "insideLeft", fill: "#9ca3af" } : undefined}
         />
         <Tooltip />
-        {/* `linear` (not `monotone`) so each day reads as its own discrete value --
-            a smoothed curve between points can look like minutes/completions are
-            building on each other day-to-day instead of resetting each day. */}
-        <Line type="linear" dataKey="completed" stroke="#e11d48" strokeWidth={2} dot={false} />
+        {/* `stepAfter` (not `linear`/`monotone`) so there's no diagonal ramp
+            between two days -- completions on a given day happened at one
+            point in time, not gradually across the gap to the next day.
+            Each day's value holds flat until the next day's own value
+            takes over (this is also what keeps a cumulative total reading
+            as a clean staircase instead of a smoothed climb). */}
+        <Line type="stepAfter" dataKey="completed" stroke="#e11d48" strokeWidth={2} dot={false} />
       </LineChart>
     </ResponsiveContainer>
   );
