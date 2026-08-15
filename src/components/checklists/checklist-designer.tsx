@@ -344,6 +344,15 @@ export function ChecklistDesigner({
     else if (selectedType === "item") updateItem(selectedId, { [field]: value }).then(refresh);
   }
 
+  /** A subsection heading is shared by every item in its run -- renaming it renames all of them at once. */
+  function renameGroupLabel(items: DesignerItem[], startIndex: number, oldLabel: string, newLabel: string | null) {
+    const runIds: string[] = [];
+    for (let i = startIndex; i < items.length && items[i].groupLabel === oldLabel; i++) {
+      runIds.push(items[i].id);
+    }
+    Promise.all(runIds.map((id) => updateItem(id, { groupLabel: newLabel }))).then(refresh);
+  }
+
   function updateStage(index: number, field: keyof StageDef, value: string) {
     if (!selectedSection) return;
     const stages = selectedSection.stages.map((s, i) => (i === index ? { ...s, [field]: value } : s));
@@ -1386,9 +1395,18 @@ export function ChecklistDesigner({
                         return (
                           <Fragment key={item.id}>
                           {showGroupHeading && (
-                            <p className="col-span-full mt-2 text-xs font-bold uppercase tracking-wide text-neutral-400 first:mt-0">
-                              {item.groupLabel}
-                            </p>
+                            <input
+                              key={`${item.id}-group-heading`}
+                              type="text"
+                              defaultValue={item.groupLabel ?? ""}
+                              onClick={(e) => e.stopPropagation()}
+                              onBlur={(e) => {
+                                const next = e.target.value.trim();
+                                if (next === item.groupLabel) return;
+                                renameGroupLabel(section.items, itemIndex, item.groupLabel as string, next || null);
+                              }}
+                              className="col-span-full mt-2 min-w-0 rounded border border-transparent bg-transparent px-1 text-xs font-bold uppercase tracking-wide text-neutral-400 outline-none first:mt-0 hover:border-neutral-700 focus:border-violet-600 focus:text-white"
+                            />
                           )}
                           <div
                             draggable
