@@ -165,7 +165,7 @@ function ModuleCard({
                           fontSize: item.groupLabelTextSize ? `${item.groupLabelTextSize}px` : undefined,
                         }}
                         className={cn(
-                          "col-span-full mt-2 text-xs font-bold uppercase tracking-wide text-neutral-400 first:mt-0",
+                          "col-span-full mt-2 text-xs font-bold tracking-wide text-neutral-400 first:mt-0",
                           fontClassForKey(item.groupLabelFontFamily),
                         )}
                       >

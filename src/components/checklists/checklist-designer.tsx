@@ -847,15 +847,24 @@ export function ChecklistDesigner({
 
             <div>
               <label className="mb-1 block text-xs text-neutral-500">Subsection label (optional)</label>
-              <input
-                key={`${selectedItem.id}-group`}
-                type="text"
-                defaultValue={selectedItem.groupLabel ?? ""}
-                onBlur={(e) => updateSelectedData("groupLabel", e.target.value.trim() || null)}
-                placeholder="e.g. Fire types"
-                title="Groups this target under a shared heading with any other targets in this module that share the same label. Leave blank for no grouping."
-                className="w-full rounded-md border border-neutral-300 px-3 py-2 text-sm outline-none focus:border-neutral-900"
-              />
+              {selectedItem.groupLabel ? (
+                <p
+                  title="Rename this from its heading in the canvas -- it's shared by every target in the group, so it's edited in one place."
+                  className="w-full truncate rounded-md border border-neutral-200 bg-neutral-50 px-3 py-2 text-sm text-neutral-500 dark:border-neutral-700 dark:bg-neutral-800"
+                >
+                  {selectedItem.groupLabel}
+                </p>
+              ) : (
+                <input
+                  key={`${selectedItem.id}-group`}
+                  type="text"
+                  defaultValue=""
+                  onBlur={(e) => updateSelectedData("groupLabel", e.target.value.trim() || null)}
+                  placeholder="e.g. Fire types"
+                  title="Groups this target under a shared heading with any other targets in this module that share the same label. Leave blank for no grouping."
+                  className="w-full rounded-md border border-neutral-300 px-3 py-2 text-sm outline-none focus:border-neutral-900"
+                />
+              )}
               {selectedItem.groupLabel && (
                 <div className="mt-2 flex flex-col gap-2 rounded-lg border border-neutral-200 p-3 dark:border-neutral-700">
                   <div className="flex items-center justify-between">
@@ -1464,7 +1473,7 @@ export function ChecklistDesigner({
                                 fontSize: item.groupLabelTextSize ? `${item.groupLabelTextSize}px` : undefined,
                               }}
                               className={cn(
-                                "col-span-full mt-2 min-w-0 rounded border border-transparent bg-transparent px-1 text-xs font-bold uppercase tracking-wide text-neutral-400 outline-none first:mt-0 hover:border-neutral-700 focus:border-violet-600 focus:text-white",
+                                "col-span-full mt-2 min-w-0 rounded border border-transparent bg-transparent px-1 text-xs font-bold tracking-wide text-neutral-400 outline-none first:mt-0 hover:border-neutral-700 focus:border-violet-600 focus:text-white",
                                 fontClassForKey(item.groupLabelFontFamily),
                               )}
                             />
