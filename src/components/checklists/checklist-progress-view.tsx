@@ -159,7 +159,16 @@ function ModuleCard({
                 return (
                   <Fragment key={item.id}>
                     {showGroupHeading && (
-                      <p className="col-span-full mt-2 text-xs font-bold uppercase tracking-wide text-neutral-400 first:mt-0">
+                      <p
+                        style={{
+                          color: item.groupLabelColor ?? undefined,
+                          fontSize: item.groupLabelTextSize ? `${item.groupLabelTextSize}px` : undefined,
+                        }}
+                        className={cn(
+                          "col-span-full mt-2 text-xs font-bold uppercase tracking-wide text-neutral-400 first:mt-0",
+                          fontClassForKey(item.groupLabelFontFamily),
+                        )}
+                      >
                         {item.groupLabel}
                       </p>
                     )}

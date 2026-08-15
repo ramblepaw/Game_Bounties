@@ -16,6 +16,7 @@ import {
   reorderSections,
   createItem,
   updateItem,
+  type ItemStyleInput,
   deleteItem,
   duplicateItem,
   moveItemToSection,
@@ -57,6 +58,9 @@ interface DesignerItem {
   url: string | null;
   order: number;
   groupLabel: string | null;
+  groupLabelColor: string | null;
+  groupLabelTextSize: number | null;
+  groupLabelFontFamily: string | null;
   bgColor: string | null;
   textColor: string | null;
   borderColor: string | null;
@@ -344,13 +348,20 @@ export function ChecklistDesigner({
     else if (selectedType === "item") updateItem(selectedId, { [field]: value }).then(refresh);
   }
 
-  /** A subsection heading is shared by every item in its run -- renaming it renames all of them at once. */
-  function renameGroupLabel(items: DesignerItem[], startIndex: number, oldLabel: string, newLabel: string | null) {
+  /** A subsection heading (text or style) is shared by every item in its run -- editing it applies to all of them at once. */
+  function updateGroupFields(items: DesignerItem[], startIndex: number, oldLabel: string, data: ItemStyleInput) {
     const runIds: string[] = [];
     for (let i = startIndex; i < items.length && items[i].groupLabel === oldLabel; i++) {
       runIds.push(items[i].id);
     }
-    Promise.all(runIds.map((id) => updateItem(id, { groupLabel: newLabel }))).then(refresh);
+    Promise.all(runIds.map((id) => updateItem(id, data))).then(refresh);
+  }
+
+  /** Same as updateGroupFields, but resolved against whichever item is currently selected. */
+  function updateSelectedGroupField(field: keyof ItemStyleInput, value: unknown) {
+    if (!selectedItem || !selectedItemSection || !selectedItem.groupLabel) return;
+    const index = selectedItemSection.items.findIndex((i) => i.id === selectedItem.id);
+    updateGroupFields(selectedItemSection.items, index, selectedItem.groupLabel, { [field]: value });
   }
 
   function updateStage(index: number, field: keyof StageDef, value: string) {
@@ -845,6 +856,47 @@ export function ChecklistDesigner({
                 title="Groups this target under a shared heading with any other targets in this module that share the same label. Leave blank for no grouping."
                 className="w-full rounded-md border border-neutral-300 px-3 py-2 text-sm outline-none focus:border-neutral-900"
               />
+              {selectedItem.groupLabel && (
+                <div className="mt-2 flex flex-col gap-2 rounded-lg border border-neutral-200 p-3 dark:border-neutral-700">
+                  <div className="flex items-center justify-between">
+                    <label className="text-xs text-neutral-500">Label color</label>
+                    <ColorField
+                      key={`${selectedItem.id}-group-color`}
+                      defaultValue={selectedItem.groupLabelColor ?? "#a3a3a3"}
+                      onChange={(color) => updateSelectedGroupField("groupLabelColor", color)}
+                      presets={colorPresets}
+                      onSavePreset={savePreset}
+                      onDeletePreset={deletePreset}
+                    />
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <label className="text-xs text-neutral-500">Label size (px)</label>
+                    <SliderWithInput
+                      key={`${selectedItem.id}-group-size`}
+                      value={selectedItem.groupLabelTextSize ?? 12}
+                      min={10}
+                      max={32}
+                      onChange={(v) => updateSelectedGroupField("groupLabelTextSize", v)}
+                    />
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <label className="text-xs text-neutral-500">Label font</label>
+                    <select
+                      key={`${selectedItem.id}-group-font`}
+                      defaultValue={selectedItem.groupLabelFontFamily ?? ""}
+                      onChange={(e) => updateSelectedGroupField("groupLabelFontFamily", e.target.value || null)}
+                      className="rounded-md border border-neutral-300 px-2 py-1 text-xs"
+                    >
+                      <option value="">Default</option>
+                      {FONT_OPTIONS.map((f) => (
+                        <option key={f.key} value={f.key}>
+                          {f.label}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+              )}
             </div>
 
             {selectedItemSection?.itemLayout !== "GRID" && (
@@ -1403,9 +1455,18 @@ export function ChecklistDesigner({
                               onBlur={(e) => {
                                 const next = e.target.value.trim();
                                 if (next === item.groupLabel) return;
-                                renameGroupLabel(section.items, itemIndex, item.groupLabel as string, next || null);
+                                updateGroupFields(section.items, itemIndex, item.groupLabel as string, {
+                                  groupLabel: next || null,
+                                });
                               }}
-                              className="col-span-full mt-2 min-w-0 rounded border border-transparent bg-transparent px-1 text-xs font-bold uppercase tracking-wide text-neutral-400 outline-none first:mt-0 hover:border-neutral-700 focus:border-violet-600 focus:text-white"
+                              style={{
+                                color: item.groupLabelColor ?? undefined,
+                                fontSize: item.groupLabelTextSize ? `${item.groupLabelTextSize}px` : undefined,
+                              }}
+                              className={cn(
+                                "col-span-full mt-2 min-w-0 rounded border border-transparent bg-transparent px-1 text-xs font-bold uppercase tracking-wide text-neutral-400 outline-none first:mt-0 hover:border-neutral-700 focus:border-violet-600 focus:text-white",
+                                fontClassForKey(item.groupLabelFontFamily),
+                              )}
                             />
                           )}
                           <div

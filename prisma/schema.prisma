@@ -260,7 +260,12 @@ model ChecklistItem {
   // without the weight of a fully separate, independently-styled module.
   // Consecutive items (by order) sharing the same label render under one
   // shared heading; null items render ungrouped, as before.
-  groupLabel  String?
+  groupLabel          String?
+  // Styling for that shared heading -- same text-property set as everything
+  // else (title, description), just scoped to the label instead of the item.
+  groupLabelColor      String?
+  groupLabelTextSize   Int?
+  groupLabelFontFamily String?
 
   bgColor     String?
   textColor   String?
