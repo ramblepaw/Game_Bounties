@@ -255,6 +255,12 @@ model ChecklistItem {
   imageUrl    String?
   url         String?
   order       Int     @default(0)
+  // Optional lightweight sub-heading grouping items within a module (e.g.
+  // splitting a "Starters" module into "Fire"/"Water"/"Grass" clusters)
+  // without the weight of a fully separate, independently-styled module.
+  // Consecutive items (by order) sharing the same label render under one
+  // shared heading; null items render ungrouped, as before.
+  groupLabel  String?
 
   bgColor     String?
   textColor   String?

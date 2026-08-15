@@ -22,6 +22,7 @@ function cloneItemFields(item: {
   imageUrl: string | null;
   url: string | null;
   order: number;
+  groupLabel: string | null;
   bgColor: string | null;
   textColor: string | null;
   borderColor: string | null;
@@ -41,6 +42,7 @@ function cloneItemFields(item: {
     imageUrl: item.imageUrl,
     url: item.url,
     order: item.order,
+    groupLabel: item.groupLabel,
     bgColor: item.bgColor,
     textColor: item.textColor,
     borderColor: item.borderColor,
@@ -217,6 +219,7 @@ const importItemSchema = z.object({
   imageUrl: z.string().nullable().optional(),
   url: z.string().nullable().optional(),
   order: z.number().optional(),
+  groupLabel: z.string().nullable().optional(),
   bgColor: z.string().nullable().optional(),
   textColor: z.string().nullable().optional(),
   borderColor: z.string().nullable().optional(),
@@ -407,6 +410,7 @@ export async function importChecklist(
                   imageUrl: remap(item.imageUrl),
                   url: item.url ?? null,
                   order: item.order ?? itemIndex,
+                  groupLabel: item.groupLabel ?? null,
                   bgColor: item.bgColor ?? null,
                   textColor: item.textColor ?? null,
                   borderColor: item.borderColor ?? null,
@@ -760,6 +764,7 @@ export type ItemStyleInput = {
   description?: string | null;
   imageUrl?: string | null;
   url?: string | null;
+  groupLabel?: string | null;
   bgColor?: string | null;
   textColor?: string | null;
   borderColor?: string | null;

@@ -167,6 +167,7 @@ export async function getChecklistExportData(checklistId: string) {
           imageUrl: item.imageUrl,
           url: item.url,
           order: item.order,
+          groupLabel: item.groupLabel,
           bgColor: item.bgColor,
           textColor: item.textColor,
           borderColor: item.borderColor,

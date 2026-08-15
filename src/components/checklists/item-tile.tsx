@@ -9,6 +9,7 @@ export interface ProgressItem {
   description: string | null;
   imageUrl: string | null;
   url: string | null;
+  groupLabel: string | null;
   bgColor: string | null;
   textColor: string | null;
   borderColor: string | null;

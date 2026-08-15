@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState, useTransition } from "react";
+import { Fragment, useEffect, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { toggleItem, setCounterValue, setItemStage } from "@/server/actions/checklists";
 import { resolveBackgroundStyle } from "@/lib/background-style";
@@ -151,17 +151,29 @@ function ModuleCard({
                   : "flex flex-col gap-2"
               }
             >
-              {section.items.map((item) => (
-                <ItemTile
-                  key={item.id}
-                  item={item}
-                  stages={section.stages}
-                  layout={section.itemLayout}
-                  onToggle={onToggle}
-                  onSetCounter={onSetCounter}
-                  onSetStage={onSetStage}
-                />
-              ))}
+              {section.items.map((item, index) => {
+                // Only shown when this run of same-label items starts here, so
+                // consecutive items sharing a label read as one grouped cluster.
+                const showGroupHeading =
+                  item.groupLabel && item.groupLabel !== (section.items[index - 1]?.groupLabel ?? null);
+                return (
+                  <Fragment key={item.id}>
+                    {showGroupHeading && (
+                      <p className="col-span-full mt-2 text-xs font-bold uppercase tracking-wide text-neutral-400 first:mt-0">
+                        {item.groupLabel}
+                      </p>
+                    )}
+                    <ItemTile
+                      item={item}
+                      stages={section.stages}
+                      layout={section.itemLayout}
+                      onToggle={onToggle}
+                      onSetCounter={onSetCounter}
+                      onSetStage={onSetStage}
+                    />
+                  </Fragment>
+                );
+              })}
             </div>
           )}
         </div>

@@ -56,6 +56,7 @@ interface DesignerItem {
   imageUrl: string | null;
   url: string | null;
   order: number;
+  groupLabel: string | null;
   bgColor: string | null;
   textColor: string | null;
   borderColor: string | null;
@@ -824,6 +825,19 @@ export function ChecklistDesigner({
               )}
             </div>
 
+            <div>
+              <label className="mb-1 block text-xs text-neutral-500">Subsection label (optional)</label>
+              <input
+                key={`${selectedItem.id}-group`}
+                type="text"
+                defaultValue={selectedItem.groupLabel ?? ""}
+                onBlur={(e) => updateSelectedData("groupLabel", e.target.value.trim() || null)}
+                placeholder="e.g. Fire types"
+                title="Groups this target under a shared heading with any other targets in this module that share the same label. Leave blank for no grouping."
+                className="w-full rounded-md border border-neutral-300 px-3 py-2 text-sm outline-none focus:border-neutral-900"
+              />
+            </div>
+
             {selectedItemSection?.itemLayout !== "GRID" && (
               <div>
                 <label className="mb-1 block text-xs text-neutral-500">Description</label>
@@ -1365,9 +1379,18 @@ export function ChecklistDesigner({
                         // a plain color, but it also muddies a deliberately-chosen gradient
                         // background -- so only apply it when there isn't one.
                         const hasGradientBg = !!item.bgColor && isGradient(item.bgColor);
+                        // Only shown when this run of same-label items starts here, so
+                        // consecutive items sharing a label read as one grouped cluster.
+                        const showGroupHeading =
+                          item.groupLabel && item.groupLabel !== (section.items[itemIndex - 1]?.groupLabel ?? null);
                         return (
+                          <Fragment key={item.id}>
+                          {showGroupHeading && (
+                            <p className="col-span-full mt-2 text-xs font-bold uppercase tracking-wide text-neutral-400 first:mt-0">
+                              {item.groupLabel}
+                            </p>
+                          )}
                           <div
-                            key={item.id}
                             draggable
                             onDragStart={(e) => handleItemDragStart(e, item.id)}
                             onDragOver={handleItemDragOver}
@@ -1482,6 +1505,7 @@ export function ChecklistDesigner({
                               </>
                             )}
                           </div>
+                          </Fragment>
                         );
                       })}
 
