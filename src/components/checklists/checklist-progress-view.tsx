@@ -1,6 +1,6 @@
 "use client";
 
-import { Fragment, useEffect, useRef, useState, useTransition } from "react";
+import { useEffect, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { toggleItem, setCounterValue, setItemStage } from "@/server/actions/checklists";
 import { resolveBackgroundStyle } from "@/lib/background-style";
@@ -94,8 +94,10 @@ function ModuleCard({
   onSetCounter: (itemId: string, value: number) => void;
   onSetStage: (itemId: string, stage: number) => void;
 }) {
-  const allComplete = section.items.length > 0 && section.items.every((i) => i.isComplete);
-  const completedCount = section.items.filter((i) => i.isComplete).length;
+  // TITLE items are headings, not targets -- they never count toward "X/Y complete".
+  const countableItems = section.items.filter((i) => i.kind !== "TITLE");
+  const allComplete = countableItems.length > 0 && countableItems.every((i) => i.isComplete);
+  const completedCount = countableItems.filter((i) => i.isComplete).length;
 
   // Starts collapsed if already fully done (e.g. reloading a finished module),
   // and auto-collapses the moment the last item completes -- but only on that
@@ -134,7 +136,7 @@ function ModuleCard({
               fontSize: section.textSize ? `${section.textSize}px` : "1.125rem",
             }}
           >
-            {completedCount}/{section.items.length}
+            {completedCount}/{countableItems.length}
           </span>
           <span className="text-xs text-neutral-400">{collapsed ? "▸" : "▾"}</span>
         </div>
@@ -151,38 +153,33 @@ function ModuleCard({
                   : "flex flex-col gap-2"
               }
             >
-              {section.items.map((item, index) => {
-                // Only shown when this run of same-label items starts here, so
-                // consecutive items sharing a label read as one grouped cluster.
-                const showGroupHeading =
-                  item.groupLabel && item.groupLabel !== (section.items[index - 1]?.groupLabel ?? null);
-                return (
-                  <Fragment key={item.id}>
-                    {showGroupHeading && (
-                      <p
-                        style={{
-                          color: item.groupLabelColor ?? undefined,
-                          fontSize: item.groupLabelTextSize ? `${item.groupLabelTextSize}px` : undefined,
-                        }}
-                        className={cn(
-                          "col-span-full mt-2 text-xs font-bold tracking-wide text-neutral-400 first:mt-0",
-                          fontClassForKey(item.groupLabelFontFamily),
-                        )}
-                      >
-                        {item.groupLabel}
-                      </p>
+              {section.items.map((item) =>
+                item.kind === "TITLE" ? (
+                  <p
+                    key={item.id}
+                    style={{
+                      color: item.textColor ?? undefined,
+                      fontSize: item.textSize ? `${item.textSize}px` : undefined,
+                    }}
+                    className={cn(
+                      "col-span-full mt-2 text-xs font-bold tracking-wide text-neutral-400 first:mt-0",
+                      fontClassForKey(item.fontFamily),
                     )}
-                    <ItemTile
-                      item={item}
-                      stages={section.stages}
-                      layout={section.itemLayout}
-                      onToggle={onToggle}
-                      onSetCounter={onSetCounter}
-                      onSetStage={onSetStage}
-                    />
-                  </Fragment>
-                );
-              })}
+                  >
+                    {item.title}
+                  </p>
+                ) : (
+                  <ItemTile
+                    key={item.id}
+                    item={item}
+                    stages={section.stages}
+                    layout={section.itemLayout}
+                    onToggle={onToggle}
+                    onSetCounter={onSetCounter}
+                    onSetStage={onSetStage}
+                  />
+                ),
+              )}
             </div>
           )}
         </div>

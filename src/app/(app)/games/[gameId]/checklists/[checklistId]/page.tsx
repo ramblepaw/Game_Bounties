@@ -68,9 +68,12 @@ export default async function ChecklistProgressPage({
   // Flattened in the same tab/module/item display order, each item carrying
   // its own module's stages -- so the box view can re-chunk into fixed-size
   // groups (e.g. 30, to mirror a Pokemon game's PC box) independent of
-  // whatever module grouping the stats page relies on.
+  // whatever module grouping the stats page relies on. TITLE items are
+  // headings, not catchable targets, so they're excluded from box slots.
   const boxItems: BoxItem[] = progressTabs.flatMap((tab) =>
-    tab.sections.flatMap((section) => section.items.map((item) => ({ ...item, stages: section.stages }))),
+    tab.sections.flatMap((section) =>
+      section.items.filter((item) => item.kind !== "TITLE").map((item) => ({ ...item, stages: section.stages })),
+    ),
   );
 
   const progress = checklistProgress({ tabs: progressTabs });

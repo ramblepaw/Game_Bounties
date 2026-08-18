@@ -9,10 +9,6 @@ export interface ProgressItem {
   description: string | null;
   imageUrl: string | null;
   url: string | null;
-  groupLabel: string | null;
-  groupLabelColor: string | null;
-  groupLabelTextSize: number | null;
-  groupLabelFontFamily: string | null;
   bgColor: string | null;
   textColor: string | null;
   borderColor: string | null;
@@ -23,7 +19,10 @@ export interface ProgressItem {
   imageScale: number;
   imagePositionX: number;
   imagePositionY: number;
-  kind: "CHECKBOX" | "COUNTER" | "STAGE";
+  // ItemTile itself never renders a TITLE-kind item -- callers branch around
+  // it and render a plain heading instead -- but the type includes it since
+  // that's a real value the underlying data can carry.
+  kind: "CHECKBOX" | "COUNTER" | "STAGE" | "TITLE";
   targetCount: number | null;
   currentCount: number;
   isComplete: boolean;

@@ -22,10 +22,6 @@ function cloneItemFields(item: {
   imageUrl: string | null;
   url: string | null;
   order: number;
-  groupLabel: string | null;
-  groupLabelColor: string | null;
-  groupLabelTextSize: number | null;
-  groupLabelFontFamily: string | null;
   bgColor: string | null;
   textColor: string | null;
   borderColor: string | null;
@@ -45,10 +41,6 @@ function cloneItemFields(item: {
     imageUrl: item.imageUrl,
     url: item.url,
     order: item.order,
-    groupLabel: item.groupLabel,
-    groupLabelColor: item.groupLabelColor,
-    groupLabelTextSize: item.groupLabelTextSize,
-    groupLabelFontFamily: item.groupLabelFontFamily,
     bgColor: item.bgColor,
     textColor: item.textColor,
     borderColor: item.borderColor,
@@ -225,10 +217,6 @@ const importItemSchema = z.object({
   imageUrl: z.string().nullable().optional(),
   url: z.string().nullable().optional(),
   order: z.number().optional(),
-  groupLabel: z.string().nullable().optional(),
-  groupLabelColor: z.string().nullable().optional(),
-  groupLabelTextSize: z.number().nullable().optional(),
-  groupLabelFontFamily: z.string().nullable().optional(),
   bgColor: z.string().nullable().optional(),
   textColor: z.string().nullable().optional(),
   borderColor: z.string().nullable().optional(),
@@ -239,7 +227,7 @@ const importItemSchema = z.object({
   imageScale: z.number().optional(),
   imagePositionX: z.number().optional(),
   imagePositionY: z.number().optional(),
-  kind: z.enum(["CHECKBOX", "COUNTER", "STAGE"]).optional(),
+  kind: z.enum(["CHECKBOX", "COUNTER", "STAGE", "TITLE"]).optional(),
   targetCount: z.number().nullable().optional(),
 });
 
@@ -419,10 +407,6 @@ export async function importChecklist(
                   imageUrl: remap(item.imageUrl),
                   url: item.url ?? null,
                   order: item.order ?? itemIndex,
-                  groupLabel: item.groupLabel ?? null,
-                  groupLabelColor: item.groupLabelColor ?? null,
-                  groupLabelTextSize: item.groupLabelTextSize ?? null,
-                  groupLabelFontFamily: item.groupLabelFontFamily ?? null,
                   bgColor: item.bgColor ?? null,
                   textColor: item.textColor ?? null,
                   borderColor: item.borderColor ?? null,
@@ -776,10 +760,6 @@ export type ItemStyleInput = {
   description?: string | null;
   imageUrl?: string | null;
   url?: string | null;
-  groupLabel?: string | null;
-  groupLabelColor?: string | null;
-  groupLabelTextSize?: number | null;
-  groupLabelFontFamily?: string | null;
   bgColor?: string | null;
   textColor?: string | null;
   borderColor?: string | null;

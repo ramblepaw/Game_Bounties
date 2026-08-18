@@ -16,7 +16,6 @@ import {
   reorderSections,
   createItem,
   updateItem,
-  type ItemStyleInput,
   deleteItem,
   duplicateItem,
   moveItemToSection,
@@ -48,7 +47,7 @@ import { cn } from "@/lib/cn";
 
 type ItemLayoutMode = "LIST" | "GRID";
 type ImageFitMode = "CONTAIN" | "COVER";
-type ItemKindMode = "CHECKBOX" | "COUNTER" | "STAGE";
+type ItemKindMode = "CHECKBOX" | "COUNTER" | "STAGE" | "TITLE";
 
 interface DesignerItem {
   id: string;
@@ -57,10 +56,6 @@ interface DesignerItem {
   imageUrl: string | null;
   url: string | null;
   order: number;
-  groupLabel: string | null;
-  groupLabelColor: string | null;
-  groupLabelTextSize: number | null;
-  groupLabelFontFamily: string | null;
   bgColor: string | null;
   textColor: string | null;
   borderColor: string | null;
@@ -346,22 +341,6 @@ export function ChecklistDesigner({
     if (selectedType === "tab") updateTab(selectedId, { [field]: value }).then(refresh);
     else if (selectedType === "module") updateSection(selectedId, { [field]: value }).then(refresh);
     else if (selectedType === "item") updateItem(selectedId, { [field]: value }).then(refresh);
-  }
-
-  /** A subsection heading (text or style) is shared by every item in its run -- editing it applies to all of them at once. */
-  function updateGroupFields(items: DesignerItem[], startIndex: number, oldLabel: string, data: ItemStyleInput) {
-    const runIds: string[] = [];
-    for (let i = startIndex; i < items.length && items[i].groupLabel === oldLabel; i++) {
-      runIds.push(items[i].id);
-    }
-    Promise.all(runIds.map((id) => updateItem(id, data))).then(refresh);
-  }
-
-  /** Same as updateGroupFields, but resolved against whichever item is currently selected. */
-  function updateSelectedGroupField(field: keyof ItemStyleInput, value: unknown) {
-    if (!selectedItem || !selectedItemSection || !selectedItem.groupLabel) return;
-    const index = selectedItemSection.items.findIndex((i) => i.id === selectedItem.id);
-    updateGroupFields(selectedItemSection.items, index, selectedItem.groupLabel, { [field]: value });
   }
 
   function updateStage(index: number, field: keyof StageDef, value: string) {
@@ -791,7 +770,7 @@ export function ChecklistDesigner({
           <>
             <div>
               <label className="mb-2 block text-xs font-bold text-neutral-500">Type</label>
-              <div className="grid grid-cols-3 gap-1 rounded-lg border border-neutral-200 bg-neutral-50 p-1 dark:border-neutral-700 dark:bg-neutral-800">
+              <div className="grid grid-cols-4 gap-1 rounded-lg border border-neutral-200 bg-neutral-50 p-1 dark:border-neutral-700 dark:bg-neutral-800">
                 <button
                   type="button"
                   onClick={() => updateSelectedData("kind", "CHECKBOX")}
@@ -822,7 +801,23 @@ export function ChecklistDesigner({
                 >
                   Stage
                 </button>
+                <button
+                  type="button"
+                  onClick={() => updateSelectedData("kind", "TITLE")}
+                  className={cn(
+                    "rounded py-1 text-xs font-bold",
+                    selectedItem.kind === "TITLE" ? "bg-white shadow" : "text-neutral-500",
+                  )}
+                >
+                  Title
+                </button>
               </div>
+              {selectedItem.kind === "TITLE" && (
+                <p className="mt-2 text-xs text-neutral-500">
+                  A plain heading -- not a target, doesn&apos;t count toward completion. Uses the Title and
+                  Appearance fields above.
+                </p>
+              )}
               {selectedItem.kind === "STAGE" && (
                 <p className="mt-2 text-xs text-neutral-500">
                   Cycles through the module&apos;s stage names above on click.
@@ -845,70 +840,7 @@ export function ChecklistDesigner({
               )}
             </div>
 
-            <div>
-              <label className="mb-1 block text-xs text-neutral-500">Subsection label (optional)</label>
-              {selectedItem.groupLabel ? (
-                <p
-                  title="Rename this from its heading in the canvas -- it's shared by every target in the group, so it's edited in one place."
-                  className="w-full truncate rounded-md border border-neutral-200 bg-neutral-50 px-3 py-2 text-sm text-neutral-500 dark:border-neutral-700 dark:bg-neutral-800"
-                >
-                  {selectedItem.groupLabel}
-                </p>
-              ) : (
-                <input
-                  key={`${selectedItem.id}-group`}
-                  type="text"
-                  defaultValue=""
-                  onBlur={(e) => updateSelectedData("groupLabel", e.target.value.trim() || null)}
-                  placeholder="e.g. Fire types"
-                  title="Groups this target under a shared heading with any other targets in this module that share the same label. Leave blank for no grouping."
-                  className="w-full rounded-md border border-neutral-300 px-3 py-2 text-sm outline-none focus:border-neutral-900"
-                />
-              )}
-              {selectedItem.groupLabel && (
-                <div className="mt-2 flex flex-col gap-2 rounded-lg border border-neutral-200 p-3 dark:border-neutral-700">
-                  <div className="flex items-center justify-between">
-                    <label className="text-xs text-neutral-500">Label color</label>
-                    <ColorField
-                      key={`${selectedItem.id}-group-color`}
-                      defaultValue={selectedItem.groupLabelColor ?? "#a3a3a3"}
-                      onChange={(color) => updateSelectedGroupField("groupLabelColor", color)}
-                      presets={colorPresets}
-                      onSavePreset={savePreset}
-                      onDeletePreset={deletePreset}
-                    />
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <label className="text-xs text-neutral-500">Label size (px)</label>
-                    <SliderWithInput
-                      key={`${selectedItem.id}-group-size`}
-                      value={selectedItem.groupLabelTextSize ?? 12}
-                      min={10}
-                      max={32}
-                      onChange={(v) => updateSelectedGroupField("groupLabelTextSize", v)}
-                    />
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <label className="text-xs text-neutral-500">Label font</label>
-                    <select
-                      key={`${selectedItem.id}-group-font`}
-                      defaultValue={selectedItem.groupLabelFontFamily ?? ""}
-                      onChange={(e) => updateSelectedGroupField("groupLabelFontFamily", e.target.value || null)}
-                      className="rounded-md border border-neutral-300 px-2 py-1 text-xs"
-                    >
-                      <option value="">Default</option>
-                      {FONT_OPTIONS.map((f) => (
-                        <option key={f.key} value={f.key}>
-                          {f.label}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                </div>
-              )}
-            </div>
-
-            {selectedItemSection?.itemLayout !== "GRID" && (
+            {selectedItem.kind !== "TITLE" && selectedItemSection?.itemLayout !== "GRID" && (
               <div>
                 <label className="mb-1 block text-xs text-neutral-500">Description</label>
                 <textarea
@@ -921,20 +853,23 @@ export function ChecklistDesigner({
               </div>
             )}
 
-            <div>
-              <label className="mb-1 block text-xs text-neutral-500">
-                Reference link (guide, wiki, etc.)
-              </label>
-              <input
-                key={`${selectedItem.id}-url`}
-                type="url"
-                defaultValue={selectedItem.url ?? ""}
-                onBlur={(e) => updateSelectedData("url", e.target.value || null)}
-                placeholder="https://..."
-                className="w-full rounded-md border border-neutral-300 px-3 py-2 text-sm outline-none focus:border-neutral-900"
-              />
-            </div>
+            {selectedItem.kind !== "TITLE" && (
+              <div>
+                <label className="mb-1 block text-xs text-neutral-500">
+                  Reference link (guide, wiki, etc.)
+                </label>
+                <input
+                  key={`${selectedItem.id}-url`}
+                  type="url"
+                  defaultValue={selectedItem.url ?? ""}
+                  onBlur={(e) => updateSelectedData("url", e.target.value || null)}
+                  placeholder="https://..."
+                  className="w-full rounded-md border border-neutral-300 px-3 py-2 text-sm outline-none focus:border-neutral-900"
+                />
+              </div>
+            )}
 
+            {selectedItem.kind !== "TITLE" && (
             <div className="flex flex-col gap-3 rounded-lg border border-neutral-200 p-3 dark:border-neutral-700">
               <ImagePicker
                 key={`${selectedItem.id}-image`}
@@ -1015,6 +950,7 @@ export function ChecklistDesigner({
                 </div>
               </div>
             </div>
+            )}
           </>
         )}
       </div>
@@ -1449,36 +1385,41 @@ export function ChecklistDesigner({
                         // a plain color, but it also muddies a deliberately-chosen gradient
                         // background -- so only apply it when there isn't one.
                         const hasGradientBg = !!item.bgColor && isGradient(item.bgColor);
-                        // Only shown when this run of same-label items starts here, so
-                        // consecutive items sharing a label read as one grouped cluster.
-                        const showGroupHeading =
-                          item.groupLabel && item.groupLabel !== (section.items[itemIndex - 1]?.groupLabel ?? null);
-                        return (
-                          <Fragment key={item.id}>
-                          {showGroupHeading && (
-                            <input
-                              key={`${item.id}-group-heading`}
-                              type="text"
-                              defaultValue={item.groupLabel ?? ""}
-                              onClick={(e) => e.stopPropagation()}
-                              onBlur={(e) => {
-                                const next = e.target.value.trim();
-                                if (next === item.groupLabel) return;
-                                updateGroupFields(section.items, itemIndex, item.groupLabel as string, {
-                                  groupLabel: next || null,
-                                });
+
+                        if (item.kind === "TITLE") {
+                          return (
+                            <div
+                              key={item.id}
+                              draggable
+                              onDragStart={(e) => handleItemDragStart(e, item.id)}
+                              onDragOver={handleItemDragOver}
+                              onDrop={(e) => handleItemDrop(e, section.id, itemIndex)}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setSelectedId(item.id);
+                                setSelectedType("item");
                               }}
                               style={{
-                                color: item.groupLabelColor ?? undefined,
-                                fontSize: item.groupLabelTextSize ? `${item.groupLabelTextSize}px` : undefined,
+                                ...resolveBackgroundStyle(item.bgColor, "transparent"),
+                                color: item.textColor ?? "#a3a3a3",
+                                borderColor: item.borderColor ?? (isItemSelected ? "#7c3aed" : "transparent"),
+                                boxShadow: isItemSelected ? "0 0 0 2px #7c3aed" : "none",
                               }}
                               className={cn(
-                                "col-span-full mt-2 min-w-0 rounded border border-transparent bg-transparent px-1 text-xs font-bold tracking-wide text-neutral-400 outline-none first:mt-0 hover:border-neutral-700 focus:border-violet-600 focus:text-white",
-                                fontClassForKey(item.groupLabelFontFamily),
+                                "col-span-full mt-2 cursor-pointer truncate rounded-lg border px-2 py-1.5 text-xs font-bold tracking-wide first:mt-0",
+                                fontClassForKey(item.fontFamily),
                               )}
-                            />
-                          )}
+                            >
+                              <span style={{ fontSize: item.textSize ? `${item.textSize}px` : undefined }}>
+                                {item.title}
+                              </span>
+                            </div>
+                          );
+                        }
+
+                        return (
                           <div
+                            key={item.id}
                             draggable
                             onDragStart={(e) => handleItemDragStart(e, item.id)}
                             onDragOver={handleItemDragOver}
@@ -1593,7 +1534,6 @@ export function ChecklistDesigner({
                               </>
                             )}
                           </div>
-                          </Fragment>
                         );
                       })}
 

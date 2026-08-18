@@ -19,11 +19,13 @@ export type ProgressSectionInput<T extends ProgressItemInput = ProgressItemInput
 // stage reached (e.g. "Research 10" out of Caught/Research 10/Perfect) is
 // its own tracked unit, not all-or-nothing.
 export function itemWeight(item: ProgressItemInput): number {
+  if (item.kind === "TITLE") return 0;
   if (item.kind === "COUNTER" || item.kind === "STAGE") return Math.max(1, item.targetCount ?? 1);
   return 1;
 }
 
 export function itemProgress(item: ProgressItemInput): number {
+  if (item.kind === "TITLE") return 0;
   if (item.kind === "COUNTER" || item.kind === "STAGE") return Math.min(item.currentCount, itemWeight(item));
   return item.isComplete ? 1 : 0;
 }
