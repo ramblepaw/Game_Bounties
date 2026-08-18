@@ -4,6 +4,11 @@ services:
     # push to main. GHCR image names are forced lowercase by the workflow's
     # metadata-action step, regardless of the GitHub repo's actual casing.
     image: ghcr.io/ramblepaw/game_bounties:latest
+    # Forces a fresh pull on every restart of just this app (not the whole
+    # NAS), so a manual restart always fetches whatever is newest at :latest
+    # instead of silently reusing whatever digest happened to be cached
+    # locally -- no full-server reboot and no background auto-updater needed.
+    pull_policy: always
     restart: unless-stopped
     depends_on:
       db:
