@@ -742,6 +742,35 @@ export async function duplicateSection(sectionId: string): Promise<{ id: string 
   return { id: duplicate.id };
 }
 
+/**
+ * Moves a module (and everything in it) to another tab, appended at the end.
+ * Per-user progress rides along untouched -- ChecklistItemProgress keys off
+ * the item, not its tab, so nobody's checkmarks are affected.
+ */
+export async function moveSectionToTab(sectionId: string, targetTabId: string): Promise<void> {
+  await requireSession();
+  const section = await db.checklistSection.findUniqueOrThrow({ where: { id: sectionId } });
+  if (section.tabId === targetTabId) return;
+
+  const targetCount = await db.checklistSection.count({ where: { tabId: targetTabId } });
+  const originSiblings = await db.checklistSection.findMany({
+    where: { tabId: section.tabId, id: { not: sectionId } },
+    orderBy: { order: "asc" },
+  });
+
+  await db.$transaction([
+    db.checklistSection.update({
+      where: { id: sectionId },
+      data: { tabId: targetTabId, order: targetCount },
+    }),
+    // Close the gap left behind, so the origin tab stays gap-free the same
+    // way a drag-and-drop reorder leaves it.
+    ...renumberSections(originSiblings.map((s) => s.id)),
+  ]);
+
+  revalidatePath("/", "layout");
+}
+
 /** Bulk reorder after a drag-and-drop move within a tab. */
 export async function reorderSections(tabId: string, orderedSectionIds: string[]): Promise<void> {
   await requireSession();

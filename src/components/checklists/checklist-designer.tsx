@@ -14,6 +14,7 @@ import {
   deleteSection,
   duplicateSection,
   reorderSections,
+  moveSectionToTab,
   createItem,
   updateItem,
   deleteItem,
@@ -245,6 +246,13 @@ export function ChecklistDesigner({
   const selectedItemSection = selectedItem
     ? allSections.find((s) => s.items.some((i) => i.id === selectedItem.id))
     : undefined;
+  // Read the selected module's tab from the module itself rather than from
+  // `activeTab`: the two only coincide because selecting a tab also clears the
+  // selection, and moving a module across tabs deliberately breaks that pairing
+  // mid-flight.
+  const selectedSectionTab = selectedSection
+    ? checklist.tabs.find((t) => t.sections.some((s) => s.id === selectedSection.id))
+    : undefined;
 
   async function addTab() {
     const { id } = await createTab(checklist.id);
@@ -285,6 +293,19 @@ export function ChecklistDesigner({
     const { id } = await createSection(activeTab.id, afterSectionId);
     setSelectedId(id);
     setSelectedType("module");
+    refresh();
+  }
+
+  async function handleMoveModuleToTab(targetTabId: string) {
+    if (!selectedId || selectedType !== "module") return;
+    const currentTabId = checklist.tabs.find((t) =>
+      t.sections.some((s) => s.id === selectedId),
+    )?.id;
+    if (!currentTabId || targetTabId === currentTabId) return;
+    await moveSectionToTab(selectedId, targetTabId);
+    // Follow the module across rather than leaving the canvas on the tab it
+    // just left, so it's obvious where it landed.
+    setActiveTabId(targetTabId);
     refresh();
   }
 
@@ -626,6 +647,23 @@ export function ChecklistDesigner({
 
         {selectedType === "module" && selectedSection && (
           <div className="flex flex-col gap-3 rounded-lg border border-neutral-200 p-3 dark:border-neutral-700">
+            {checklist.tabs.length > 1 && (
+              <div className="flex items-center justify-between">
+                <label className="text-xs text-neutral-500">Tab</label>
+                <select
+                  key={`${selectedSection.id}-tab`}
+                  value={selectedSectionTab?.id ?? ""}
+                  onChange={(e) => handleMoveModuleToTab(e.target.value)}
+                  className="rounded-md border border-neutral-300 px-2 py-1 text-xs"
+                >
+                  {checklist.tabs.map((tab) => (
+                    <option key={tab.id} value={tab.id}>
+                      {tab.title}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
             <div>
               <label className="mb-2 block text-xs font-bold text-neutral-500">Module width</label>
               <div className="grid grid-cols-4 gap-1 rounded-lg border border-neutral-200 bg-neutral-50 p-1 dark:border-neutral-700 dark:bg-neutral-800">
