@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { ProgressBar } from "@/components/checklists/progress-bar";
 import { GameCover } from "@/components/games/game-cover";
@@ -21,6 +21,15 @@ const WHEEL_THRESHOLD = 50;
 // games quickly (the queue keeps refilling as long as real input keeps
 // crossing the threshold).
 const WHEEL_QUEUE_CAP = 6;
+
+// Where the centered game is remembered across navigation. sessionStorage
+// (rather than the URL) keeps this independent of the router cache, and scopes
+// it to the tab so two windows don't fight over one position.
+const CENTERED_GAME_KEY = "games:centered";
+
+// This component is server-rendered for the initial HTML, where useLayoutEffect
+// does nothing and warns; fall back to useEffect on that pass.
+const useIsomorphicLayoutEffect = typeof window === "undefined" ? useEffect : useLayoutEffect;
 
 type CarouselGame = {
   id: string;
@@ -80,6 +89,35 @@ export function GameCarousel({ games }: { games: CarouselGame[] }) {
       if (wheelIntervalRef.current) clearInterval(wheelIntervalRef.current);
     };
   }, []);
+
+  // Opening a game unmounts this component, so `index` can't survive the trip
+  // on its own and coming back always landed on the first card. Restore by
+  // game id rather than by index: a game added, removed, or renamed while we
+  // were away would otherwise quietly center a different one.
+  useIsomorphicLayoutEffect(() => {
+    let storedId: string | null = null;
+    try {
+      storedId = sessionStorage.getItem(CENTERED_GAME_KEY);
+    } catch {
+      // Storage throws outright when site data is blocked; starting at the
+      // first card is a fine fallback.
+    }
+    if (!storedId) return;
+    const restored = games.findIndex((game) => game.id === storedId);
+    // Running as a layout effect lands this before the browser paints, so the
+    // cards mount already centered instead of visibly spinning into place.
+    if (restored > 0) setIndex(restored);
+  }, [games]);
+
+  useEffect(() => {
+    const centered = visibleGames[index];
+    if (!centered) return;
+    try {
+      sessionStorage.setItem(CENTERED_GAME_KEY, centered.id);
+    } catch {
+      // Non-fatal -- the position just won't be remembered.
+    }
+  }, [index, visibleGames]);
 
   if (totalCount === 0) {
     return <p className="text-neutral-500">No games yet. Add your first one below.</p>;
