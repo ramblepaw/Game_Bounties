@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useState } from "react";
 import { resolveBackgroundStyle, isGradient } from "@/lib/background-style";
 import { fontClassForKey } from "@/lib/fonts";
 import { resolveStage, type StageDef } from "@/lib/stages";
@@ -31,34 +31,6 @@ export interface ProgressItem {
   isComplete: boolean;
 }
 
-// Typing into the counter used to commit only on blur, so a typed value looked
-// saved but wasn't until you clicked away. Commit on a short idle instead --
-// long enough that typing "150" sends one write rather than three.
-const COUNTER_COMMIT_DELAY_MS = 600;
-
-/**
- * Checkbox targets are the one kind with no control of their own, which left
- * them as bare labels -- nothing to aim at, and "done" readable only as a
- * slight dimming. Draw an actual box, in the item's own text color so it works
- * against any background the creator picked.
- */
-function CheckMark({ checked, size }: { checked: boolean; size: "sm" | "lg" }) {
-  return (
-    <span
-      aria-hidden
-      className={cn(
-        "flex shrink-0 items-center justify-center rounded-md border-2 border-current font-black leading-none",
-        size === "sm" ? "h-5 w-5 text-[12px]" : "h-7 w-7 text-base",
-        // Unchecked reads as an empty affordance rather than competing with
-        // the title for attention.
-        !checked && "opacity-35",
-      )}
-    >
-      {checked ? "✓" : ""}
-    </span>
-  );
-}
-
 export function CounterControl({
   item,
   onChange,
@@ -71,7 +43,6 @@ export function CounterControl({
   const [draft, setDraft] = useState(String(item.currentCount));
   const [focused, setFocused] = useState(false);
   const [syncedCount, setSyncedCount] = useState(item.currentCount);
-  const commitTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Adopt server-confirmed values (the +/- buttons, or the other player moving
   // the same counter) -- but never mid-edit, which would yank the field out
@@ -82,35 +53,11 @@ export function CounterControl({
     setDraft(String(item.currentCount));
   }
 
-  useEffect(() => {
-    return () => {
-      if (commitTimer.current) clearTimeout(commitTimer.current);
-    };
-  }, []);
-
-  function cancelPending() {
-    if (commitTimer.current) {
-      clearTimeout(commitTimer.current);
-      commitTimer.current = null;
-    }
-  }
-
+  // Deliberately not committing as you type: a typed "150" pauses at "1" and
+  // "15", and saving those would flash the wrong total -- and if one of them
+  // reaches the target, mark the item done and collapse the module mid-keystroke.
   function commitNow(value: number) {
-    cancelPending();
     onChange(Math.max(0, value));
-  }
-
-  function handleTyping(raw: string) {
-    setDraft(raw);
-    cancelPending();
-    // An empty field is someone mid-edit, not a request to save zero.
-    if (raw.trim() === "") return;
-    const parsed = parseInt(raw, 10);
-    if (Number.isNaN(parsed)) return;
-    commitTimer.current = setTimeout(() => {
-      commitTimer.current = null;
-      onChange(Math.max(0, parsed));
-    }, COUNTER_COMMIT_DELAY_MS);
   }
 
   const step = (delta: number) => commitNow(item.currentCount + delta);
@@ -144,7 +91,7 @@ export function CounterControl({
           setFocused(true);
           e.currentTarget.select();
         }}
-        onChange={(e) => handleTyping(e.target.value)}
+        onChange={(e) => setDraft(e.target.value)}
         onBlur={(e) => {
           setFocused(false);
           commitNow(parseInt(e.target.value, 10) || 0);
@@ -152,7 +99,6 @@ export function CounterControl({
         onKeyDown={(e) => {
           if (e.key === "Enter") e.currentTarget.blur();
           if (e.key === "Escape") {
-            cancelPending();
             setDraft(String(item.currentCount));
             e.currentTarget.blur();
           }
@@ -161,7 +107,7 @@ export function CounterControl({
         // for native form controls, and that would otherwise repaint this one
         // white regardless of the item's own colors.
         style={{ color: "inherit", backgroundColor: "transparent" }}
-        className="w-10 border-0 bg-transparent text-center text-xs font-bold tabular-nums outline-none [appearance:textfield] focus:ring-0 [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+        className="w-14 border-0 bg-transparent text-center text-xs font-bold tabular-nums outline-none [appearance:textfield] focus:ring-0 [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
       />
       <button
         type="button"
@@ -234,10 +180,7 @@ export function ItemTile({
       className={cn(
         "relative isolate cursor-pointer overflow-hidden rounded-xl border transition-transform hover:scale-[1.02] focus:outline-none focus:ring-2 focus:ring-neutral-900",
         layout === "GRID" ? "flex aspect-square flex-col" : "flex items-center gap-3 p-2",
-        // Dimming alone read as "faded", not "finished"; it now only supports
-        // the check mark rather than carrying the whole signal, so it can be
-        // gentler and leave the item legible.
-        item.isComplete && "opacity-60 saturate-[0.6]",
+        item.isComplete && "opacity-50 saturate-[0.35]",
       )}
     >
       {/* Painted on its own layer, bled 1px past the edges -- a background
@@ -272,13 +215,6 @@ export function ItemTile({
           style={{ color: resolvedStage.borderColor }}
         >
           {resolvedStage.name}
-        </span>
-      )}
-      {/* A grid tile is mostly artwork, so the completed state gets a corner
-          badge rather than the always-present box a list row can afford. */}
-      {isCheckbox && layout === "GRID" && item.isComplete && (
-        <span className="absolute left-1.5 top-1.5 z-20 flex h-6 w-6 items-center justify-center rounded-full bg-black/70 text-sm font-black text-white">
-          ✓
         </span>
       )}
       {layout === "GRID" ? (
@@ -324,7 +260,6 @@ export function ItemTile({
         </>
       ) : (
         <>
-          {isCheckbox && <CheckMark checked={item.isComplete} size="sm" />}
           {item.imageUrl && (
             <div className="h-12 w-12 shrink-0 overflow-hidden rounded-md bg-black/10">
               {/* eslint-disable-next-line @next/next/no-img-element */}
