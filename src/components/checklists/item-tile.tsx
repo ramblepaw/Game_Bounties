@@ -1,3 +1,6 @@
+"use client";
+
+import { useEffect, useRef, useState } from "react";
 import { resolveBackgroundStyle, isGradient } from "@/lib/background-style";
 import { fontClassForKey } from "@/lib/fonts";
 import { resolveStage, type StageDef } from "@/lib/stages";
@@ -28,6 +31,8 @@ export interface ProgressItem {
   isComplete: boolean;
 }
 
+const COUNTER_IDLE_SAVE_MS = 1500;
+
 export function CounterControl({
   item,
   onChange,
@@ -37,24 +42,115 @@ export function CounterControl({
   onChange: (value: number) => void;
   className?: string;
 }) {
+  const [draft, setDraft] = useState(String(item.currentCount));
+  const [focused, setFocused] = useState(false);
+  const [syncedCount, setSyncedCount] = useState(item.currentCount);
+  const idleTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Adopt values confirmed by the server (the +/- chips, a tile click, or the
+  // other player moving the same counter) -- but never mid-edit, which would
+  // yank the field out from under whoever is typing in it.
+  if (!focused && item.currentCount !== syncedCount) {
+    setSyncedCount(item.currentCount);
+    setDraft(String(item.currentCount));
+  }
+
+  useEffect(() => {
+    return () => {
+      if (idleTimer.current) clearTimeout(idleTimer.current);
+    };
+  }, []);
+
+  function clearIdle() {
+    if (idleTimer.current) {
+      clearTimeout(idleTimer.current);
+      idleTimer.current = null;
+    }
+  }
+
+  function commit(value: number) {
+    clearIdle();
+    const next = Math.max(0, value);
+    if (next !== item.currentCount) onChange(next);
+  }
+
+  // Saving on blur alone meant dismissing the keyboard to make a number stick,
+  // which is the worst case on a touch device. Save once typing stops instead.
+  // The wait is deliberately longer than a keystroke gap so "150" commits as
+  // 150, not as 1 and then 15 -- an intermediate value that lands on the target
+  // would otherwise flash the item complete and collapse the module underneath.
+  function handleTyping(raw: string) {
+    setDraft(raw);
+    clearIdle();
+    if (raw.trim() === "") return;
+    const parsed = parseInt(raw, 10);
+    if (Number.isNaN(parsed)) return;
+    idleTimer.current = setTimeout(() => {
+      idleTimer.current = null;
+      commit(parsed);
+    }, COUNTER_IDLE_SAVE_MS);
+  }
+
   return (
-    <div onClick={(e) => e.stopPropagation()} className={cn("flex items-center gap-1.5", className)}>
+    <div
+      // A tile click bumps the counter, so the controls have to keep their own
+      // clicks from counting twice.
+      onClick={(e) => e.stopPropagation()}
+      className={cn("flex items-center gap-1 text-xs font-bold", className)}
+    >
       <button
         type="button"
-        onClick={() => onChange(item.currentCount + 1)}
-        className="rounded bg-white/10 px-2 py-0.5 text-xs font-bold text-white hover:bg-white/20"
+        onClick={() => commit(item.currentCount - 1)}
+        disabled={item.currentCount <= 0}
+        aria-label="Decrease by one"
+        className="flex h-6 w-6 items-center justify-center rounded-md bg-current/10 text-sm leading-none transition-colors hover:bg-current/20 disabled:opacity-30 disabled:hover:bg-current/10"
       >
-        +1
+        −
       </button>
-      <input
-        key={`${item.id}-${item.currentCount}`}
-        type="number"
-        min={0}
-        defaultValue={item.currentCount}
-        onBlur={(e) => onChange(parseInt(e.target.value, 10) || 0)}
-        className="w-14 rounded border border-white/20 bg-black/20 px-1 py-0.5 text-center text-xs text-white"
-      />
-      <span className="text-[10px] text-white/70">/ {item.targetCount ?? "?"}</span>
+      <span className="flex items-baseline gap-0.5 tabular-nums">
+        <input
+          type="number"
+          min={0}
+          inputMode="numeric"
+          value={draft}
+          aria-label="Count"
+          onFocus={(e) => {
+            setFocused(true);
+            e.currentTarget.select();
+          }}
+          onChange={(e) => handleTyping(e.target.value)}
+          onBlur={(e) => {
+            setFocused(false);
+            commit(parseInt(e.target.value, 10) || 0);
+          }}
+          onKeyDown={(e) => {
+            if (e.key === "Enter") e.currentTarget.blur();
+            if (e.key === "Escape") {
+              clearIdle();
+              setDraft(String(item.currentCount));
+              e.currentTarget.blur();
+            }
+          }}
+          // Set inline because globals.css paints bare `input` elements for
+          // native form controls -- the old hard black box came from fighting
+          // that with classes. Inheriting instead lets the number read as part
+          // of the item's own text, whatever colors the creator chose.
+          style={{ color: "inherit", backgroundColor: "transparent" }}
+          className={cn(
+            "w-9 rounded-md border-0 text-right tabular-nums outline-none [appearance:textfield] focus:bg-current/10 [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none",
+            item.targetCount == null && "text-center",
+          )}
+        />
+        {item.targetCount != null && <span className="opacity-60">/{item.targetCount}</span>}
+      </span>
+      <button
+        type="button"
+        onClick={() => commit(item.currentCount + 1)}
+        aria-label="Increase by one"
+        className="flex h-6 w-6 items-center justify-center rounded-md bg-current/10 text-sm leading-none transition-colors hover:bg-current/20"
+      >
+        +
+      </button>
     </div>
   );
 }
@@ -85,39 +181,39 @@ export function ItemTile({
   // background -- so only apply it when there isn't one.
   const hasGradientBg = !!item.bgColor && isGradient(item.bgColor);
 
+  // Counters were the only kind that ignored a tile click, forcing you onto the
+  // small "+1" control.
+  function activate() {
+    if (isCounter) onSetCounter(item.id, item.currentCount + 1);
+    else if (isStage) onSetStage(item.id, (currentStage + 1) % (stageCount + 1));
+    else onToggle(item.id);
+  }
+
   return (
     <div
-      role={isCounter ? undefined : isStage ? "button" : "checkbox"}
+      role={isCounter || isStage ? "button" : "checkbox"}
       aria-checked={isCounter || isStage ? undefined : item.isComplete}
       aria-label={isStage ? resolvedStage.name : undefined}
-      tabIndex={isCounter ? undefined : 0}
-      onClick={
-        isCounter
-          ? undefined
-          : isStage
-            ? () => onSetStage(item.id, (currentStage + 1) % (stageCount + 1))
-            : () => onToggle(item.id)
-      }
-      onKeyDown={
-        isCounter
-          ? undefined
-          : (e) => {
-              if (e.key === "Enter" || e.key === " ") {
-                e.preventDefault();
-                if (isStage) onSetStage(item.id, (currentStage + 1) % (stageCount + 1));
-                else onToggle(item.id);
-              }
-            }
-      }
+      tabIndex={0}
+      onClick={activate}
+      onKeyDown={(e) => {
+        if (e.key === "Enter" || e.key === " ") {
+          e.preventDefault();
+          activate();
+        }
+      }}
       style={{
         borderColor: isStage ? resolvedStage.borderColor : (item.borderColor ?? "transparent"),
         color: isStage ? resolvedStage.textColor : (item.textColor ?? "#ede9fe"),
       }}
       className={cn(
-        "relative isolate overflow-hidden rounded-xl border transition-transform focus:outline-none focus:ring-2 focus:ring-neutral-900",
-        isCounter ? "" : "cursor-pointer hover:scale-[1.02]",
+        "relative isolate cursor-pointer overflow-hidden rounded-xl border transition-transform hover:scale-[1.02] focus:outline-none focus:ring-2 focus:ring-neutral-900",
         layout === "GRID" ? "flex aspect-square flex-col" : "flex items-center gap-3 p-2",
-        item.isComplete && "opacity-50 saturate-[0.35]",
+        // A grid tile is mostly artwork, and fading the whole thing works there
+        // because the art visibly drains of color. A list row is text on a flat
+        // fill, where the same rule only makes the text hard to read -- so the
+        // row keeps its text crisp and drains the fill instead (see below).
+        layout === "GRID" && item.isComplete && "opacity-50 saturate-[0.35]",
       )}
     >
       {/* Painted on its own layer, bled 1px past the edges -- a background
@@ -125,7 +221,15 @@ export function ItemTile({
           corners once `hover:scale` promotes this element to its own
           compositing layer, especially with a diagonal gradient. */}
       <div
-        className="absolute -inset-px -z-10"
+        className={cn(
+          "absolute -inset-px -z-10",
+          // The list row's "done" signal: the fill loses its color and mostly
+          // recedes into the module behind it, while the title above stays at
+          // full strength. Washing the backing rather than the whole row is
+          // what makes a text-only item read as finished the way a drained
+          // piece of artwork does.
+          layout === "LIST" && item.isComplete && "opacity-25 grayscale",
+        )}
         style={resolveBackgroundStyle(
           isStage ? (resolvedStage.bgColor ?? item.bgColor) : item.bgColor,
           "rgba(139,92,246,0.08)",
