@@ -202,8 +202,15 @@ export function GameShelves({ shelves }: { shelves: Shelf[] }) {
     });
   }
 
+  // Ungrouped's id is genuinely null, which is also the "nothing is being
+  // dragged" sentinel -- so every one of these has to check that a drag is
+  // actually in progress first. Comparing ids alone left Ungrouped permanently
+  // wearing the drop-target highlight and the dragged-shelf dimming.
   const isTargeted = (shelfId: string | null, beforeGameId: string | null) =>
-    dropTarget?.shelfId === shelfId && dropTarget?.beforeGameId === beforeGameId;
+    dropTarget !== null && dropTarget.shelfId === shelfId && dropTarget.beforeGameId === beforeGameId;
+  const isShelfTargeted = (shelfId: string | null) => dropTarget !== null && dropTarget.shelfId === shelfId;
+  const isReorderTarget = (shelfId: string | null) => shelfId !== null && shelfDropTarget === shelfId;
+  const isBeingDragged = (shelfId: string | null) => shelfId !== null && draggingShelfId === shelfId;
 
   return (
     <div className="flex flex-col gap-4">
@@ -256,10 +263,10 @@ export function GameShelves({ shelves }: { shelves: Shelf[] }) {
             }}
             className={cn(
               "rounded-2xl border-2 p-3 transition-colors",
-              dropTarget?.shelfId === shelf.id || shelfDropTarget === shelf.id
+              isShelfTargeted(shelf.id) || isReorderTarget(shelf.id)
                 ? "border-violet-500 bg-violet-50 dark:bg-violet-950/40"
                 : "border-violet-200 dark:border-violet-900",
-              draggingShelfId === shelf.id && "opacity-40",
+              isBeingDragged(shelf.id) && "opacity-40",
             )}
           >
             <div className="mb-3 flex items-center gap-2">
