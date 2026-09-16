@@ -11,6 +11,7 @@ import {
   deleteGameGroup,
   moveGameToGroup,
   renameGameGroup,
+  reorderGameGroups,
 } from "@/server/actions/game-groups";
 import type { Shelf, ShelfGame } from "@/server/queries/games";
 import { cn } from "@/lib/cn";
@@ -140,8 +141,34 @@ export function GameShelves({ shelves }: { shelves: Shelf[] }) {
 
   const [draggingId, setDraggingId] = useState<string | null>(null);
   const [dropTarget, setDropTarget] = useState<DropTarget | null>(null);
+  const [draggingShelfId, setDraggingShelfId] = useState<string | null>(null);
+  const [shelfDropTarget, setShelfDropTarget] = useState<string | null>(null);
   const [renamingId, setRenamingId] = useState<string | null>(null);
   const [renameDraft, setRenameDraft] = useState("");
+
+  /** Ungrouped is synthetic rather than a row in the database, so it always trails. */
+  function persistShelfOrder(next: Shelf[]) {
+    setLocal(next);
+    const groupIds = next.filter((s) => s.id !== null).map((s) => s.id as string);
+    startTransition(async () => {
+      await reorderGameGroups(groupIds);
+      router.refresh();
+    });
+  }
+
+  function reorderShelves(shelfId: string, toIndex: number) {
+    const groups = local.filter((s) => s.id !== null);
+    const trailing = local.filter((s) => s.id === null);
+    const from = groups.findIndex((s) => s.id === shelfId);
+    if (from === -1 || toIndex < 0 || toIndex >= groups.length || from === toIndex) return;
+    const next = [...groups];
+    const [moved] = next.splice(from, 1);
+    next.splice(toIndex, 0, moved);
+    persistShelfOrder([...next, ...trailing]);
+  }
+
+  const groupIndexOf = (shelfId: string) => local.filter((s) => s.id !== null).findIndex((s) => s.id === shelfId);
+  const groupCount = local.filter((s) => s.id !== null).length;
 
   function applyMove(gameId: string, toShelfId: string | null, beforeGameId: string | null) {
     const from = local.find((s) => s.games.some((g) => g.id === gameId));
@@ -182,7 +209,8 @@ export function GameShelves({ shelves }: { shelves: Shelf[] }) {
     <div className="flex flex-col gap-4">
       <div className="flex items-center justify-between">
         <p className="text-xs text-neutral-500">
-          Drag a cover between groups, or use <span className="font-bold">⋯</span> on a cover to move it.
+          Drag a cover between groups, or use <span className="font-bold">⋯</span> on it to move it. Reorder groups with{" "}
+          <span className="font-bold">⠿</span> or the arrows.
         </p>
         <Button size="sm" onClick={() => runAction(() => createGameGroup())}>
           + New group
@@ -198,6 +226,15 @@ export function GameShelves({ shelves }: { shelves: Shelf[] }) {
           <section
             key={shelf.id ?? "ungrouped"}
             onDragOver={(e) => {
+              // A shelf being dragged and a game being dragged both land here,
+              // so the two cases have to be told apart before previewing a drop.
+              if (draggingShelfId) {
+                if (isUngrouped || shelf.id === draggingShelfId) return;
+                e.preventDefault();
+                e.dataTransfer.dropEffect = "move";
+                setShelfDropTarget(shelf.id);
+                return;
+              }
               if (!draggingId) return;
               e.preventDefault();
               e.dataTransfer.dropEffect = "move";
@@ -205,18 +242,45 @@ export function GameShelves({ shelves }: { shelves: Shelf[] }) {
             }}
             onDrop={(e) => {
               e.preventDefault();
-              if (draggingId) applyMove(draggingId, shelf.id, dropTarget?.beforeGameId ?? null);
+              if (draggingShelfId) {
+                if (shelf.id && shelf.id !== draggingShelfId) {
+                  reorderShelves(draggingShelfId, groupIndexOf(shelf.id));
+                }
+              } else if (draggingId) {
+                applyMove(draggingId, shelf.id, dropTarget?.beforeGameId ?? null);
+              }
               setDraggingId(null);
               setDropTarget(null);
+              setDraggingShelfId(null);
+              setShelfDropTarget(null);
             }}
             className={cn(
               "rounded-2xl border-2 p-3 transition-colors",
-              dropTarget?.shelfId === shelf.id
+              dropTarget?.shelfId === shelf.id || shelfDropTarget === shelf.id
                 ? "border-violet-500 bg-violet-50 dark:bg-violet-950/40"
                 : "border-violet-200 dark:border-violet-900",
+              draggingShelfId === shelf.id && "opacity-40",
             )}
           >
             <div className="mb-3 flex items-center gap-2">
+              {!isUngrouped && (
+                <span
+                  draggable
+                  onDragStart={(e) => {
+                    e.dataTransfer.effectAllowed = "move";
+                    e.dataTransfer.setData("text/plain", shelf.id!);
+                    setDraggingShelfId(shelf.id);
+                  }}
+                  onDragEnd={() => {
+                    setDraggingShelfId(null);
+                    setShelfDropTarget(null);
+                  }}
+                  title="Drag to reorder this group"
+                  className="cursor-grab select-none text-sm leading-none text-neutral-400 active:cursor-grabbing"
+                >
+                  ⠿
+                </span>
+              )}
               {renamingId === shelf.id && shelf.id ? (
                 <form
                   onSubmit={(e) => {
@@ -253,16 +317,38 @@ export function GameShelves({ shelves }: { shelves: Shelf[] }) {
               )}
               <span className="text-xs text-neutral-400">{shelf.games.length}</span>
               {!isUngrouped && (
-                <button
-                  type="button"
-                  onClick={() => {
-                    if (!window.confirm(`Delete the group "${shelf.name}"? Its games move back to Ungrouped.`)) return;
-                    runAction(() => deleteGameGroup(shelf.id!));
-                  }}
-                  className="ml-auto text-xs text-rose-500 hover:underline"
-                >
-                  Delete group
-                </button>
+                <div className="ml-auto flex items-center gap-1">
+                  {/* Dragging the handle is mouse-only, so the arrows are how
+                      groups get reordered on a touchscreen. */}
+                  <button
+                    type="button"
+                    aria-label={`Move ${shelf.name} up`}
+                    disabled={groupIndexOf(shelf.id!) === 0}
+                    onClick={() => reorderShelves(shelf.id!, groupIndexOf(shelf.id!) - 1)}
+                    className="flex h-6 w-6 items-center justify-center rounded-md text-sm leading-none text-violet-600 transition-colors hover:bg-violet-100 disabled:opacity-25 disabled:hover:bg-transparent dark:text-violet-300 dark:hover:bg-violet-950"
+                  >
+                    ↑
+                  </button>
+                  <button
+                    type="button"
+                    aria-label={`Move ${shelf.name} down`}
+                    disabled={groupIndexOf(shelf.id!) === groupCount - 1}
+                    onClick={() => reorderShelves(shelf.id!, groupIndexOf(shelf.id!) + 1)}
+                    className="flex h-6 w-6 items-center justify-center rounded-md text-sm leading-none text-violet-600 transition-colors hover:bg-violet-100 disabled:opacity-25 disabled:hover:bg-transparent dark:text-violet-300 dark:hover:bg-violet-950"
+                  >
+                    ↓
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (!window.confirm(`Delete the group "${shelf.name}"? Its games move back to Ungrouped.`)) return;
+                      runAction(() => deleteGameGroup(shelf.id!));
+                    }}
+                    className="ml-1 text-xs text-rose-500 hover:underline"
+                  >
+                    Delete group
+                  </button>
+                </div>
               )}
             </div>
 
