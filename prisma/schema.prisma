@@ -85,9 +85,32 @@ model Game {
   createdAt              DateTime @default(now())
   updatedAt              DateTime @updatedAt
 
+  // Shelf this game sits on in the grouped library view. Null means ungrouped,
+  // which renders as its own trailing shelf rather than being hidden. Groups
+  // are shared, like games and checklists themselves -- only progress is
+  // per-user -- so both players see the same arrangement.
+  groupId    String?
+  group      GameGroup? @relation(fields: [groupId], references: [id], onDelete: SetNull)
+  // Position within that shelf. Ungrouped games ignore it and fall back to
+  // sortTitle, so a game that has never been filed still lands somewhere sane.
+  groupOrder Int        @default(0)
+
   checklists Checklist[]
 
   @@index([platform])
+  @@index([groupId])
+}
+
+/// A user-defined shelf in the grouped library view. Deleting one leaves its
+/// games ungrouped (onDelete: SetNull) rather than taking the games with it.
+model GameGroup {
+  id        String   @id @default(cuid())
+  name      String
+  order     Int      @default(0)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  games Game[]
 }
 
 model Checklist {

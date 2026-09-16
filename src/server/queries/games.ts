@@ -45,6 +45,75 @@ export async function listGames(userId: string) {
   return bySortTitle(withProgress);
 }
 
+export interface ShelfGame {
+  id: string;
+  title: string;
+  secondaryTitle: string | null;
+  platform: string | null;
+  coverImageUrl: string | null;
+  secondaryCoverImageUrl: string | null;
+  /** Drives the "which games even have checklists?" question the shelf view exists to answer. */
+  checklistCount: number;
+  completed: number;
+  total: number;
+  percent: number;
+}
+
+export interface Shelf {
+  /** Null is the synthetic trailing shelf holding everything not yet filed. */
+  id: string | null;
+  name: string;
+  games: ShelfGame[];
+}
+
+/**
+ * The library arranged into user-defined shelves, with each game carrying
+ * enough progress detail to tell at a glance whether it has checklists at all.
+ * Ungrouped games come back as a final shelf with a null id rather than being
+ * dropped, so a game can never become invisible by not being filed.
+ */
+export async function listShelves(userId: string): Promise<Shelf[]> {
+  const [games, groups] = await Promise.all([
+    listGames(userId),
+    db.gameGroup.findMany({ orderBy: [{ order: "asc" }, { name: "asc" }] }),
+  ]);
+
+  const toShelfGame = (game: (typeof games)[number]): ShelfGame => {
+    const items = game.checklists.flatMap((c) => checklistProgress(c));
+    const total = items.reduce((sum, p) => sum + p.total, 0);
+    const completed = items.reduce((sum, p) => sum + p.completed, 0);
+    return {
+      id: game.id,
+      title: game.title,
+      secondaryTitle: game.secondaryTitle,
+      platform: game.platform,
+      coverImageUrl: game.coverImageUrl,
+      secondaryCoverImageUrl: game.secondaryCoverImageUrl,
+      checklistCount: game.checklists.length,
+      completed,
+      total,
+      percent: total === 0 ? 0 : Math.round((completed / total) * 100),
+    };
+  };
+
+  // Within a shelf the hand-arranged order wins; ties (and never-filed games)
+  // fall back to the alphabetical order `listGames` already returns them in.
+  const byGroupOrder = (a: (typeof games)[number], b: (typeof games)[number]) => a.groupOrder - b.groupOrder;
+
+  const shelves: Shelf[] = groups.map((group) => ({
+    id: group.id,
+    name: group.name,
+    games: games
+      .filter((g) => g.groupId === group.id)
+      .sort(byGroupOrder)
+      .map(toShelfGame),
+  }));
+
+  const ungrouped = games.filter((g) => g.groupId === null);
+  shelves.push({ id: null, name: "Ungrouped", games: ungrouped.map(toShelfGame) });
+  return shelves;
+}
+
 export function checklistProgress(checklist: {
   tabs: { sections: { stages: unknown; items: ProgressItemInput[] }[] }[];
 }) {

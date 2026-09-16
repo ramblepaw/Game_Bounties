@@ -1,15 +1,19 @@
 import Link from "next/link";
+import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
-import { listGames, checklistProgress } from "@/server/queries/games";
+import { listGames, listShelves, checklistProgress } from "@/server/queries/games";
 import { getSession } from "@/lib/auth";
-import { GameCarousel } from "@/components/games/game-carousel";
+import { GamesLibrary } from "@/components/games/games-library";
 import { Button } from "@/components/ui/button";
 
 export default async function GamesPage() {
   const session = await getSession();
   if (!session) redirect("/login");
 
-  const games = await listGames(session.userId);
+  const [games, shelves] = await Promise.all([listGames(session.userId), listShelves(session.userId)]);
+  // Resolved here rather than on the client so the first render matches the
+  // HTML the server sent -- same approach the root layout takes for the theme.
+  const initialView = (await cookies()).get("games-view")?.value === "shelves" ? "shelves" : "carousel";
 
   const carouselGames = games.map((game) => {
     const allItems = game.checklists.flatMap((c) => checklistProgress(c));
@@ -39,7 +43,7 @@ export default async function GamesPage() {
           <Button size="sm">+ Add game</Button>
         </Link>
       </div>
-      <GameCarousel games={carouselGames} />
+      <GamesLibrary carouselGames={carouselGames} shelves={shelves} initialView={initialView} />
     </div>
   );
 }
