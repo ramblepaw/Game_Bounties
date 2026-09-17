@@ -1,6 +1,7 @@
 import { listPurchases } from "@/server/queries/purchases";
 import { getTokenBalance } from "@/lib/token-ledger";
 import { PurchaseForm } from "./purchase-form";
+import { TokenAdjustmentForm } from "./token-adjustment-form";
 import { PurchaseList } from "./purchase-list";
 
 export default async function PurchasesPage() {
@@ -28,6 +29,7 @@ export default async function PurchasesPage() {
       </p>
 
       <PurchaseForm />
+      <TokenAdjustmentForm />
       <PurchaseList purchases={purchases} />
     </div>
   );
