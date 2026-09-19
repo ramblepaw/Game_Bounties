@@ -149,7 +149,7 @@ export function ChecklistStatsPanel({
         </CollapsibleSection>
 
         <CollapsibleSection
-          title="Completed per day"
+          title="Progress per day"
           headerExtra={
             currentAverage != null && (
               <span className="whitespace-nowrap text-xs text-neutral-500">
@@ -159,13 +159,13 @@ export function ChecklistStatsPanel({
           }
         >
           {completedRows.length === 0 ? (
-            <p className="text-sm text-neutral-500">No completions logged yet.</p>
+            <p className="text-sm text-neutral-500">No progress logged yet.</p>
           ) : (
             <table className="w-full text-left text-sm">
               <thead>
                 <tr className="border-b border-violet-200 text-neutral-500 dark:border-violet-800">
                   <th className="py-2 font-medium">Date</th>
-                  <th className="py-2 font-medium">Completed</th>
+                  <th className="py-2 font-medium">Progress</th>
                   <th className="py-2 font-medium">Average</th>
                   <th className="py-2 font-medium">Est. date</th>
                 </tr>

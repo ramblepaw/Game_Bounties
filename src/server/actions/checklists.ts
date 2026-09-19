@@ -852,18 +852,39 @@ export async function duplicateItem(itemId: string): Promise<{ id: string }> {
   return { id: duplicate.id };
 }
 
+/**
+ * Records a change in completed units on the append-only progress log.
+ *
+ * ChecklistItemProgress only ever holds the current value, so without this
+ * there is no way to answer "how much did I get done on Tuesday" for anything
+ * other than an item that happened to finish that day -- which is why a
+ * checklist whose one target is "collect 3360" looked idle until the last unit.
+ * `delta` is in the same units the progress bar totals, so a counter's +50 is
+ * 50 and a checkbox is 1.
+ */
+function recordProgressEvent(userId: string, itemId: string, before: number, after: number) {
+  return db.checklistItemProgressEvent.create({
+    data: { userId, itemId, delta: after - before, unitsAfter: after },
+  });
+}
+
 export async function toggleItem(itemId: string): Promise<void> {
   const session = await requireSession();
   const existing = await db.checklistItemProgress.findUnique({
     where: { userId_itemId: { userId: session.userId, itemId } },
   });
   const isComplete = !existing?.isComplete;
+  const before = existing?.isComplete ? 1 : 0;
+  const after = isComplete ? 1 : 0;
 
-  await db.checklistItemProgress.upsert({
-    where: { userId_itemId: { userId: session.userId, itemId } },
-    create: { userId: session.userId, itemId, isComplete, completedAt: isComplete ? new Date() : null },
-    update: { isComplete, completedAt: isComplete ? new Date() : null },
-  });
+  await db.$transaction([
+    db.checklistItemProgress.upsert({
+      where: { userId_itemId: { userId: session.userId, itemId } },
+      create: { userId: session.userId, itemId, isComplete, completedAt: isComplete ? new Date() : null },
+      update: { isComplete, completedAt: isComplete ? new Date() : null },
+    }),
+    recordProgressEvent(session.userId, itemId, before, after),
+  ]);
   revalidatePath("/", "layout");
 }
 
@@ -878,11 +899,20 @@ export async function setCounterValue(itemId: string, value: number): Promise<vo
   const isComplete = item.targetCount != null && currentCount >= item.targetCount;
   const completedAt = isComplete ? (wasComplete ? (existing?.completedAt ?? new Date()) : new Date()) : null;
 
-  await db.checklistItemProgress.upsert({
-    where: { userId_itemId: { userId: session.userId, itemId } },
-    create: { userId: session.userId, itemId, currentCount, isComplete, completedAt },
-    update: { currentCount, isComplete, completedAt },
-  });
+  // Counting past the target doesn't earn extra progress, so the log has to
+  // clamp the same way itemProgress does or the daily totals would exceed 100%.
+  const weight = Math.max(1, item.targetCount ?? 1);
+  const before = Math.min(existing?.currentCount ?? 0, weight);
+  const after = Math.min(currentCount, weight);
+
+  await db.$transaction([
+    db.checklistItemProgress.upsert({
+      where: { userId_itemId: { userId: session.userId, itemId } },
+      create: { userId: session.userId, itemId, currentCount, isComplete, completedAt },
+      update: { currentCount, isComplete, completedAt },
+    }),
+    recordProgressEvent(session.userId, itemId, before, after),
+  ]);
   revalidatePath("/", "layout");
 }
 
@@ -902,11 +932,20 @@ export async function setItemStage(itemId: string, stage: number): Promise<void>
   const isComplete = stageCount > 0 && currentCount >= stageCount;
   const completedAt = isComplete ? (wasComplete ? (existing?.completedAt ?? new Date()) : new Date()) : null;
 
-  await db.checklistItemProgress.upsert({
-    where: { userId_itemId: { userId: session.userId, itemId } },
-    create: { userId: session.userId, itemId, currentCount, isComplete, completedAt },
-    update: { currentCount, isComplete, completedAt },
-  });
+  // A stage item's weight is its module's stage count, matching how
+  // flattenProgressItems resolves it before the progress bar totals it.
+  const weight = Math.max(1, stageCount);
+  const before = Math.min(existing?.currentCount ?? 0, weight);
+  const after = Math.min(currentCount, weight);
+
+  await db.$transaction([
+    db.checklistItemProgress.upsert({
+      where: { userId_itemId: { userId: session.userId, itemId } },
+      create: { userId: session.userId, itemId, currentCount, isComplete, completedAt },
+      update: { currentCount, isComplete, completedAt },
+    }),
+    recordProgressEvent(session.userId, itemId, before, after),
+  ]);
   revalidatePath("/", "layout");
 }
 

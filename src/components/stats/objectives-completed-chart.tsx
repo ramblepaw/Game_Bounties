@@ -35,7 +35,7 @@ export function ObjectivesCompletedChart({ data }: { data: { date: string; compl
       <div className="flex items-center justify-between gap-2">
         <div onClick={() => setCollapsed((c) => !c)} className="flex cursor-pointer items-center gap-2">
           <span className="text-xs text-neutral-400">{collapsed ? "▸" : "▾"}</span>
-          <h3 className="font-medium text-fuchsia-700 dark:text-fuchsia-400">Objectives completed</h3>
+          <h3 className="font-medium text-fuchsia-700 dark:text-fuchsia-400">Progress per day</h3>
         </div>
         {!collapsed && (
           <div className="flex gap-1">
@@ -57,7 +57,7 @@ export function ObjectivesCompletedChart({ data }: { data: { date: string; compl
           </div>
         )}
       </div>
-      {!collapsed && <VelocityChart data={visible} yLabel="objectives completed" />}
+      {!collapsed && <VelocityChart data={visible} yLabel="progress" />}
     </div>
   );
 }

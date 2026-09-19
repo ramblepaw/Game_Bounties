@@ -63,6 +63,7 @@ model User {
   gamePurchases       GamePurchase[]        @relation("PurchasedBy")
   activeChecklists    ActiveChecklist[]
   itemProgress        ChecklistItemProgress[]
+  progressEvents ChecklistItemProgressEvent[] @relation("ProgressEventUser")
 }
 
 model Game {
@@ -303,7 +304,8 @@ model ChecklistItem {
   kind        ItemKind @default(CHECKBOX)
   targetCount Int?
 
-  progress ChecklistItemProgress[]
+  progress       ChecklistItemProgress[]
+  progressEvents ChecklistItemProgressEvent[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -314,6 +316,31 @@ model ChecklistItem {
 // One row per (user, item) -- the actual "is this checked off" state. Kept
 // separate from ChecklistItem (which is shared, shared-content) so that two
 // household members each running the same checklist don't share checkmarks.
+/// Append-only log of progress changes, so the stats panel can show day-by-day
+/// history. ChecklistItemProgress holds only the *current* value, which made a
+/// counter's daily gains invisible -- a checklist whose single target is
+/// "collect 3360" showed nothing until the very last unit landed.
+model ChecklistItemProgressEvent {
+  id     String        @id @default(cuid())
+  itemId String
+  item   ChecklistItem @relation(fields: [itemId], references: [id], onDelete: Cascade)
+
+  userId String
+  user   User   @relation("ProgressEventUser", fields: [userId], references: [id], onDelete: Cascade)
+
+  /// Change in *completed units* -- the same measure `itemProgress` returns and
+  /// the progress bar already totals, so a counter's +50 is 50 while a checkbox
+  /// is 1. Negative when progress is undone.
+  delta Int
+  /// Completed units after this change, kept for auditing a drifting total.
+  unitsAfter Int
+
+  createdAt DateTime @default(now())
+
+  @@index([itemId])
+  @@index([userId, createdAt])
+}
+
 model ChecklistItemProgress {
   id     String        @id @default(cuid())
   userId String

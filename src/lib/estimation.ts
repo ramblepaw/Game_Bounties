@@ -1,7 +1,7 @@
 import "server-only";
 import { differenceInCalendarDays, addDays } from "date-fns";
 import { db } from "@/lib/db";
-import { itemWeight, computeChecklistProgress, flattenProgressItems } from "@/lib/checklist-progress";
+import { computeChecklistProgress, flattenProgressItems } from "@/lib/checklist-progress";
 import { asStages } from "@/lib/stages";
 import { fetchItemProgressMap, withItemProgress } from "@/server/queries/item-progress";
 import { nowInTimeZone, toCalendarDay } from "@/lib/timezone";
@@ -43,15 +43,17 @@ export async function estimateCompletionDate(
   const { total, completed } = computeChecklistProgress(items);
   const remaining = total - completed;
 
-  // A finished item's timestamp is the only signal we record about pacing --
-  // there's no log of the individual increments behind a COUNTER, so its full
-  // weight lands on the single day it crossed its target rather than being
-  // spread across the days it was actually accumulating.
-  const completedItems = items.filter(
-    (i): i is typeof i & { completedAt: Date } => i.isComplete && i.completedAt !== null,
-  );
+  // Pacing comes from the progress log rather than from which items happen to
+  // be finished. Keying off completions meant a checklist whose only target is
+  // a large counter had nothing to estimate from until the very end -- the one
+  // case where an estimate is most wanted.
+  const firstEvent = await db.checklistItemProgressEvent.findFirst({
+    where: { userId, item: { section: { tab: { checklistId } } } },
+    orderBy: { createdAt: "asc" },
+    select: { createdAt: true },
+  });
 
-  if (remaining <= 0 || completedItems.length === 0) {
+  if (remaining <= 0 || firstEvent === null || completed <= 0) {
     return { projectedDate: null, velocityPerDay: null, confidence: "none" };
   }
 
@@ -65,13 +67,11 @@ export async function estimateCompletionDate(
   // exact same "average" shown per-day in the stats table, so the two never
   // disagree.
   const now = nowInTimeZone(timeZone);
-  const earliestCompletedAt = completedItems.reduce(
-    (min, i) => (i.completedAt < min ? i.completedAt : min),
-    completedItems[0].completedAt,
-  );
-  const daysElapsed = differenceInCalendarDays(now, toCalendarDay(earliestCompletedAt, timeZone)) + 1;
-  const totalUnitsCompleted = completedItems.reduce((sum, i) => sum + itemWeight(i), 0);
-  const velocityPerDay = totalUnitsCompleted / daysElapsed;
+  const daysElapsed = differenceInCalendarDays(now, toCalendarDay(firstEvent.createdAt, timeZone)) + 1;
+  // `completed` is the same figure the progress bar shows, and the same total
+  // the per-day table accumulates to, so the headline and the table can't
+  // report different averages.
+  const velocityPerDay = completed / daysElapsed;
   if (velocityPerDay <= 0) {
     return { projectedDate: null, velocityPerDay: null, confidence: "none" };
   }

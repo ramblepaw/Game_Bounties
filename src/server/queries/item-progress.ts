@@ -40,27 +40,26 @@ export function withItemProgress<T extends { id: string }>(
  * its history or start well before any real activity happened.
  */
 export async function completedByDayForChecklist(checklistId: string, userId: string, timeZone: string) {
-  const rows = await db.checklistItemProgress.findMany({
-    where: {
-      userId,
-      isComplete: true,
-      completedAt: { not: null },
-      item: { section: { tab: { checklistId } } },
-    },
-    select: { completedAt: true },
-    orderBy: { completedAt: "asc" },
+  // Read from the progress log rather than from which items happen to be
+  // finished: counting completions alone means a checklist whose single target
+  // is "collect 3360" reports nothing at all until the very last unit lands.
+  // Deltas here are the same units the progress bar totals, so partial progress
+  // on a counter counts the day it was made.
+  const rows = await db.checklistItemProgressEvent.findMany({
+    where: { userId, item: { section: { tab: { checklistId } } } },
+    select: { delta: true, createdAt: true },
+    orderBy: { createdAt: "asc" },
   });
   if (rows.length === 0) return [];
 
   const counts = new Map<string, number>();
   for (const row of rows) {
-    if (!row.completedAt) continue;
-    const key = zonedDateKey(row.completedAt, timeZone);
-    counts.set(key, (counts.get(key) ?? 0) + 1);
+    const key = zonedDateKey(row.createdAt, timeZone);
+    counts.set(key, (counts.get(key) ?? 0) + row.delta);
   }
 
   const today = nowInTimeZone(timeZone);
-  const firstDay = toCalendarDay(rows[0].completedAt as Date, timeZone);
+  const firstDay = toCalendarDay(rows[0].createdAt, timeZone);
   const totalDays = differenceInCalendarDays(today, firstDay) + 1;
   const result: { date: string; completed: number }[] = [];
   for (let i = totalDays - 1; i >= 0; i--) {
