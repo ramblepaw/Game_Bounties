@@ -10,11 +10,17 @@ import { VelocityChart } from "@/components/stats/velocity-chart";
 import { TokenHistoryTable } from "@/components/stats/token-history-table";
 import { BadgeShelf } from "@/components/badges/badge-shelf";
 import { ProgressBar } from "@/components/checklists/progress-bar";
+import { getCurrentUser } from "@/lib/auth";
+import { DEFAULT_TIMEZONE } from "@/lib/timezone";
 
 export default async function StatsPage() {
+  // Days are bucketed against the viewer's timezone, like everywhere else.
+  const currentUser = await getCurrentUser();
+  const timeZone = currentUser?.timezone ?? DEFAULT_TIMEZONE;
+
   const [playtime, velocity, transactions, badges, completionByGame] = await Promise.all([
     playtimePerGame(),
-    completionVelocityByDay(),
+    completionVelocityByDay(timeZone),
     tokenHistory(),
     allUserBadges(),
     checklistCompletionRatesByGame(),
@@ -30,7 +36,7 @@ export default async function StatsPage() {
       </section>
 
       <section className="flex flex-col gap-3">
-        <h2 className="font-medium text-fuchsia-700 dark:text-fuchsia-400">Checklist completions — last 30 days</h2>
+        <h2 className="font-medium text-fuchsia-700 dark:text-fuchsia-400">Targets completed — last 30 days</h2>
         <VelocityChart data={velocity} />
       </section>
 

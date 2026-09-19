@@ -1,8 +1,9 @@
 import "server-only";
-import { subDays, formatISO } from "date-fns";
+import { subDays } from "date-fns";
 import { db } from "@/lib/db";
 import { computeChecklistProgress, flattenProgressItems } from "@/lib/checklist-progress";
 import { asStages } from "@/lib/stages";
+import { zonedDateKey } from "@/lib/timezone";
 
 export async function playtimePerGame() {
   const games = await db.game.findMany({
@@ -25,26 +26,31 @@ export async function playtimePerGame() {
     .sort((a, b) => b.minutes - a.minutes);
 }
 
-// Household-wide activity: each user's own completion of an item is its own
-// event, so this deliberately doesn't filter by user -- two people finishing
-// the same item on different days are two separate points on the chart.
-export async function completionVelocityByDay(days = 30) {
+// Household-wide activity: each user's own progress is its own event, so this
+// deliberately doesn't filter by user -- two people working the same item are
+// two separate contributions to the chart.
+export async function completionVelocityByDay(timeZone: string, days = 30) {
   const since = subDays(new Date(), days);
-  const rows = await db.checklistItemProgress.findMany({
-    where: { isComplete: true, completedAt: { gte: since } },
-    select: { completedAt: true },
+  // A counter of 100 is 100 targets and a stage item is one target per stage,
+  // exactly as on the checklist's own stats. Counting finished items instead
+  // would score a 100-coin counter as a single target, landing entirely on the
+  // day it happened to finish.
+  const rows = await db.checklistItemProgressEvent.findMany({
+    where: { createdAt: { gte: since } },
+    select: { delta: true, createdAt: true },
   });
 
   const counts = new Map<string, number>();
   for (const row of rows) {
-    if (!row.completedAt) continue;
-    const key = formatISO(row.completedAt, { representation: "date" });
-    counts.set(key, (counts.get(key) ?? 0) + 1);
+    const key = zonedDateKey(row.createdAt, timeZone);
+    counts.set(key, (counts.get(key) ?? 0) + row.delta);
   }
 
+  // Bucketed against the viewer's timezone rather than the server's, like
+  // every other "which day did this happen on" in the app.
   const result: { date: string; completed: number }[] = [];
   for (let i = days - 1; i >= 0; i--) {
-    const date = formatISO(subDays(new Date(), i), { representation: "date" });
+    const date = zonedDateKey(subDays(new Date(), i), timeZone);
     result.push({ date, completed: counts.get(date) ?? 0 });
   }
   return result;
