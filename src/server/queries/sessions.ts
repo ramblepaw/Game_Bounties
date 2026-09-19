@@ -2,7 +2,7 @@ import "server-only";
 import { subDays, differenceInCalendarDays } from "date-fns";
 import { db } from "@/lib/db";
 import { formatISODateLocal } from "@/lib/format";
-import { zonedDateKey, nowInTimeZone, toCalendarDay } from "@/lib/timezone";
+import { nowInTimeZone, toCalendarDay, splitMinutesByDay } from "@/lib/timezone";
 
 export async function getActiveSessionFor(userId: string) {
   return db.playSession.findFirst({
@@ -60,15 +60,18 @@ export async function sessionCountForChecklist(checklistId: string, userId: stri
 export async function playtimeByDayForChecklist(checklistId: string, userId: string, timeZone: string) {
   const sessions = await db.playSession.findMany({
     where: { checklistId, userId, durationMinutes: { not: null } },
-    select: { startedAt: true, durationMinutes: true },
+    select: { startedAt: true, endedAt: true, durationMinutes: true },
     orderBy: { startedAt: "asc" },
   });
   if (sessions.length === 0) return [];
 
   const totals = new Map<string, number>();
   for (const s of sessions) {
-    const key = zonedDateKey(s.startedAt, timeZone);
-    totals.set(key, (totals.get(key) ?? 0) + (s.durationMinutes ?? 0));
+    // A session that runs past midnight belongs to both days, in the
+    // proportion actually played on each.
+    for (const [key, minutes] of splitMinutesByDay(s.startedAt, s.endedAt, s.durationMinutes ?? 0, timeZone)) {
+      totals.set(key, (totals.get(key) ?? 0) + minutes);
+    }
   }
 
   const today = nowInTimeZone(timeZone);

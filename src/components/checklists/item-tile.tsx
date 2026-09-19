@@ -94,8 +94,11 @@ export function CounterControl({
   return (
     <div
       // A tile click bumps the counter, so the controls have to keep their own
-      // clicks from counting twice.
+      // clicks from counting twice. Keys need the same treatment: the tile
+      // treats Enter as "advance this target", so pressing Enter to commit a
+      // typed count used to save the number and then immediately add one to it.
       onClick={(e) => e.stopPropagation()}
+      onKeyDown={(e) => e.stopPropagation()}
       className={cn("flex items-center gap-1 text-xs font-bold", className)}
     >
       <button
