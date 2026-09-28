@@ -3,6 +3,7 @@ import { subDays, differenceInCalendarDays } from "date-fns";
 import { db } from "@/lib/db";
 import { formatISODateLocal } from "@/lib/format";
 import { zonedDateKey, nowInTimeZone, toCalendarDay } from "@/lib/timezone";
+import { withinRun, type RunWindow } from "@/lib/runs";
 
 export type ItemProgressData = {
   isComplete: boolean;
@@ -34,19 +35,25 @@ export function withItemProgress<T extends { id: string }>(
 }
 
 /**
- * Day-by-day completion counts for one user on one checklist, from their very
- * first completion through today -- not a fixed lookback window, since a
- * checklist can take months and an arbitrary cutoff would either hide most of
- * its history or start well before any real activity happened.
+ * Day-by-day completion counts for one user on one run of a checklist, from
+ * the run's first progress to the day it was submitted -- or today, while it
+ * is still being played. Not a fixed lookback window, since a checklist can
+ * take months and an arbitrary cutoff would either hide most of its history or
+ * start well before any real activity happened.
  */
-export async function completedByDayForChecklist(checklistId: string, userId: string, timeZone: string) {
+export async function completedByDayForChecklist(
+  checklistId: string,
+  userId: string,
+  timeZone: string,
+  window: RunWindow,
+) {
   // Read from the progress log rather than from which items happen to be
   // finished: counting completions alone means a checklist whose single target
   // is "collect 3360" reports nothing at all until the very last unit lands.
   // Deltas here are the same units the progress bar totals, so partial progress
   // on a counter counts the day it was made.
   const rows = await db.checklistItemProgressEvent.findMany({
-    where: { userId, item: { section: { tab: { checklistId } } } },
+    where: { userId, item: { section: { tab: { checklistId } } }, createdAt: withinRun(window) },
     select: { delta: true, createdAt: true },
     orderBy: { createdAt: "asc" },
   });
@@ -58,12 +65,15 @@ export async function completedByDayForChecklist(checklistId: string, userId: st
     counts.set(key, (counts.get(key) ?? 0) + row.delta);
   }
 
-  const today = nowInTimeZone(timeZone);
+  // A finished run stops on the day it was submitted. Running on to today is
+  // what made completed checklists look like they were still being played:
+  // every day added another zero and dragged the average down.
+  const lastDay = window.to ? toCalendarDay(window.to, timeZone) : nowInTimeZone(timeZone);
   const firstDay = toCalendarDay(rows[0].createdAt, timeZone);
-  const totalDays = differenceInCalendarDays(today, firstDay) + 1;
+  const totalDays = differenceInCalendarDays(lastDay, firstDay) + 1;
   const result: { date: string; completed: number }[] = [];
   for (let i = totalDays - 1; i >= 0; i--) {
-    const date = formatISODateLocal(subDays(today, i));
+    const date = formatISODateLocal(subDays(lastDay, i));
     result.push({ date, completed: counts.get(date) ?? 0 });
   }
   return result;

@@ -67,7 +67,7 @@ export async function tokenHistory(limit = 50) {
 export async function allUserBadges() {
   return db.userBadge.findMany({
     orderBy: { awardedAt: "desc" },
-    include: { user: true, badge: true },
+    include: { user: true, badge: true, completion: { select: { id: true, submittedAt: true, checklistId: true, checklist: { select: { gameId: true } } } } },
   });
 }
 

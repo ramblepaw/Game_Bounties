@@ -166,6 +166,7 @@ export function ItemTile({
   onToggle,
   onSetCounter,
   onSetStage,
+  readOnly = false,
 }: {
   item: ProgressItem;
   stages: StageDef[];
@@ -173,6 +174,8 @@ export function ItemTile({
   onToggle: (itemId: string) => void;
   onSetCounter: (itemId: string, value: number) => void;
   onSetStage: (itemId: string, stage: number) => void;
+  /** A finished run: shown as it ended, with nothing clickable or focusable. */
+  readOnly?: boolean;
 }) {
   const isCounter = item.kind === "COUNTER";
   const isStage = item.kind === "STAGE";
@@ -197,7 +200,8 @@ export function ItemTile({
       role={isCounter || isStage ? "button" : "checkbox"}
       aria-checked={isCounter || isStage ? undefined : item.isComplete}
       aria-label={isStage ? resolvedStage.name : undefined}
-      tabIndex={0}
+      tabIndex={readOnly ? -1 : 0}
+      inert={readOnly}
       onClick={activate}
       onKeyDown={(e) => {
         if (e.key === "Enter" || e.key === " ") {
@@ -210,7 +214,8 @@ export function ItemTile({
         color: isStage ? resolvedStage.textColor : (item.textColor ?? "#ede9fe"),
       }}
       className={cn(
-        "relative isolate cursor-pointer overflow-hidden rounded-xl border transition-transform hover:scale-[1.02] focus:outline-none focus:ring-2 focus:ring-neutral-900",
+        "relative isolate overflow-hidden rounded-xl border",
+        !readOnly && "cursor-pointer transition-transform hover:scale-[1.02] focus:outline-none focus:ring-2 focus:ring-neutral-900",
         layout === "GRID" ? "flex aspect-square flex-col" : "flex items-center gap-3 p-2",
         // A grid tile is mostly artwork, and fading the whole thing works there
         // because the art visibly drains of color. A list row is text on a flat

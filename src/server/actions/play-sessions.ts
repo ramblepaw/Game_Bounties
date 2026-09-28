@@ -5,6 +5,7 @@ import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { getSession } from "@/lib/auth";
 import { db } from "@/lib/db";
+import { isRunSubmitted, SUBMITTED_RUN_LOCKED } from "@/lib/runs";
 
 async function requireSession() {
   const session = await getSession();
@@ -31,6 +32,10 @@ export async function startSession(
   });
   if (active) {
     return { error: "You already have an active session running. Stop it first." };
+  }
+  // A submitted run is finished; time spent after that isn't part of it.
+  if (await isRunSubmitted(checklistId, session.userId)) {
+    return { error: SUBMITTED_RUN_LOCKED };
   }
 
   await db.playSession.create({
@@ -94,6 +99,10 @@ export async function createManualSession(
   const durationMinutes = hours * 60 + minutes;
   if (durationMinutes <= 0) {
     return { error: "Enter a duration greater than zero." };
+  }
+
+  if (await isRunSubmitted(parsed.data.checklistId, session.userId)) {
+    return { error: SUBMITTED_RUN_LOCKED };
   }
 
   const startedAt = parseLocalDate(parsed.data.date);

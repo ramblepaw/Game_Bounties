@@ -39,6 +39,8 @@ export function ChecklistStatsPanel({
   tabProgress,
   playtimeByDay,
   completedByDay,
+  readOnly = false,
+  playerName,
 }: {
   checklistId: string;
   checklistName: string;
@@ -51,7 +53,12 @@ export function ChecklistStatsPanel({
   tabProgress: { tab: string; percent: number }[];
   playtimeByDay: { date: string; minutes: number }[];
   completedByDay: { date: string; completed: number }[];
+  /** A finished run: its sessions are settled and can't be edited. */
+  readOnly?: boolean;
+  /** Whose run this is, when it isn't the viewer's own -- e.g. a reviewer looking at a submission. */
+  playerName?: string;
 }) {
+  const whose = playerName ? `${playerName}'s` : "Your";
   const checklists = [{ id: checklistId, name: checklistName, game: { title: gameTitle } }];
 
   // Running average minutes/day as of each date, keyed for session-row lookup.
@@ -82,15 +89,15 @@ export function ChecklistStatsPanel({
         <div className="grid grid-cols-3 gap-3 rounded-lg border border-violet-200 bg-violet-50 p-3 text-center dark:border-violet-800 dark:bg-violet-950/40">
           <div>
             <p className="text-lg font-bold text-violet-900 dark:text-violet-200">{formatMinutes(totalMinutes)}</p>
-            <p className="text-xs text-neutral-500">Your playtime</p>
+            <p className="text-xs text-neutral-500">{whose} playtime</p>
           </div>
           <div>
             <p className="text-lg font-bold text-violet-900 dark:text-violet-200">{sessionCount}</p>
-            <p className="text-xs text-neutral-500">Your sessions</p>
+            <p className="text-xs text-neutral-500">{whose} sessions</p>
           </div>
           <div>
             <p className="text-lg font-bold text-violet-900 dark:text-violet-200">{progress.percent}%</p>
-            <p className="text-xs text-neutral-500">Your completion</p>
+            <p className="text-xs text-neutral-500">{whose} completion</p>
           </div>
         </div>
       </CollapsibleSection>
@@ -104,7 +111,7 @@ export function ChecklistStatsPanel({
       <ObjectivesCompletedChart data={completedByDay} />
 
       <CollapsibleSection
-        title="Your playtime"
+        title={`${whose} playtime`}
         headerExtra={
           avgPlaytimePerDay != null && (
             <span className="whitespace-nowrap text-xs text-neutral-500">
@@ -117,7 +124,7 @@ export function ChecklistStatsPanel({
       </CollapsibleSection>
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-        <CollapsibleSection title="Your session log">
+        <CollapsibleSection title={`${whose} session log`}>
           {sessions.length === 0 ? (
             <p className="text-sm text-neutral-500">No sessions logged for this checklist yet.</p>
           ) : (
@@ -141,6 +148,7 @@ export function ChecklistStatsPanel({
                     showPlayer={false}
                     showChecklist={false}
                     averageMinutesPerDay={playtimeAvgByDate.get(zonedDateKey(s.startedAt, timeZone))}
+                    readOnly={readOnly}
                   />
                 ))}
               </tbody>

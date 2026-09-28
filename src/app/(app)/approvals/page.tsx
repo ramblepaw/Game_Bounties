@@ -1,13 +1,16 @@
 import { redirect } from "next/navigation";
-import { getSession } from "@/lib/auth";
+import { getSession, getCurrentUser } from "@/lib/auth";
 import { listPendingApprovalsFor } from "@/server/queries/approvals";
 import { ApprovalCard } from "@/components/approvals/approval-card";
+import { runHref } from "@/lib/run-links";
+import { DEFAULT_TIMEZONE, formatShortDateIn } from "@/lib/timezone";
 
 export default async function ApprovalsPage() {
   const session = await getSession();
   if (!session) redirect("/login");
 
-  const pending = await listPendingApprovalsFor(session.userId);
+  const [pending, currentUser] = await Promise.all([listPendingApprovalsFor(session.userId), getCurrentUser()]);
+  const timeZone = currentUser?.timezone ?? DEFAULT_TIMEZONE;
 
   return (
     <div className="flex flex-col gap-6">
@@ -22,9 +25,9 @@ export default async function ApprovalsPage() {
               completionId={completion.id}
               gameTitle={completion.checklist.game.title}
               checklistName={completion.checklist.name}
-              checklistHref={`/games/${completion.checklist.gameId}/checklists/${completion.checklistId}`}
+              runHref={runHref(completion.checklist.gameId, completion.checklistId, completion.id)}
               completedByName={completion.completedBy.displayName}
-              submittedAt={completion.submittedAt}
+              submittedOn={formatShortDateIn(completion.submittedAt, timeZone)}
             />
           ))}
         </ul>

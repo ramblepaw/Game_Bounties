@@ -11,16 +11,21 @@ export function ApprovalCard({
   completionId,
   gameTitle,
   checklistName,
-  checklistHref,
+  runHref,
   completedByName,
-  submittedAt,
+  submittedOn,
 }: {
   completionId: string;
   gameTitle: string;
   checklistName: string;
-  checklistHref: string;
+  /**
+   * The submitter's run -- not the checklist page, which shows whoever is
+   * looking at it their own board. Omitted when the card is already on the run.
+   */
+  runHref?: string;
   completedByName: string;
-  submittedAt: Date;
+  /** Already formatted in the viewer's timezone, so it matches the run's own dates and charts. */
+  submittedOn: string;
 }) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
@@ -39,11 +44,13 @@ export function ApprovalCard({
           {gameTitle} — {checklistName}
         </p>
         <p className="text-sm text-neutral-600 dark:text-neutral-300">
-          Completed by {completedByName} on {submittedAt.toLocaleDateString()}
+          Completed by {completedByName} on {submittedOn}
         </p>
-        <Link href={checklistHref} className="text-sm text-violet-600 underline">
-          View checklist
-        </Link>
+        {runHref && (
+          <Link href={runHref} className="text-sm text-violet-600 underline">
+            View {completedByName}&apos;s run
+          </Link>
+        )}
       </div>
       {error && <p className="text-sm text-red-600">{error}</p>}
       {showReject ? (

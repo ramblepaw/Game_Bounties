@@ -7,7 +7,7 @@ import { db } from "@/lib/db";
 import { DEFAULT_ACTIVE_CHECKLIST_LIMIT } from "@/lib/limits";
 import { isTokenless } from "@/lib/token-economy";
 import { getCooldownFor } from "@/lib/cooldown";
-import { resetChecklistProgress } from "@/server/actions/checklist-progress-reset";
+import { assertRunNotSubmitted, discardCurrentAttempt } from "@/lib/runs";
 
 async function requireSession() {
   const session = await getSession();
@@ -65,9 +65,18 @@ export async function activateChecklist(checklistId: string): Promise<ActivateRe
 }
 
 /** Stops a run. Erases any progress on the checklist — the UI must confirm this first. */
+/**
+ * Stops a run early. Abandoning a run costs what was put into it: its item
+ * progress, its progress log, and the time spent in it are all thrown away, so
+ * none of it counts toward stats or carries into the next attempt. A run that
+ * has already been submitted is finished, not abandonable.
+ */
 export async function deactivateChecklist(checklistId: string): Promise<void> {
   const session = await requireSession();
-  await resetChecklistProgress(checklistId, session.userId);
-  await db.activeChecklist.deleteMany({ where: { userId: session.userId, checklistId } });
+  await assertRunNotSubmitted(checklistId, session.userId);
+  await db.$transaction(async (tx) => {
+    await discardCurrentAttempt(checklistId, session.userId, tx);
+    await tx.activeChecklist.deleteMany({ where: { userId: session.userId, checklistId } });
+  });
   revalidatePath("/", "layout");
 }

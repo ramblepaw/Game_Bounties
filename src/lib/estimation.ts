@@ -5,6 +5,7 @@ import { computeChecklistProgress, flattenProgressItems } from "@/lib/checklist-
 import { asStages } from "@/lib/stages";
 import { fetchItemProgressMap, withItemProgress } from "@/server/queries/item-progress";
 import { nowInTimeZone, toCalendarDay } from "@/lib/timezone";
+import { withinRun, type RunWindow } from "@/lib/runs";
 
 export type CompletionEstimate = {
   projectedDate: Date | null;
@@ -16,6 +17,7 @@ export async function estimateCompletionDate(
   checklistId: string,
   userId: string,
   timeZone: string,
+  window: RunWindow,
 ): Promise<CompletionEstimate> {
   const checklist = await db.checklist.findUnique({
     where: { id: checklistId },
@@ -47,8 +49,10 @@ export async function estimateCompletionDate(
   // be finished. Keying off completions meant a checklist whose only target is
   // a large counter had nothing to estimate from until the very end -- the one
   // case where an estimate is most wanted.
+  // Only this run's log: a previous run's history would date the pace from
+  // an attempt that already finished, and drag it down across the cooldown.
   const firstEvent = await db.checklistItemProgressEvent.findFirst({
-    where: { userId, item: { section: { tab: { checklistId } } } },
+    where: { userId, item: { section: { tab: { checklistId } } }, createdAt: withinRun(window) },
     orderBy: { createdAt: "asc" },
     select: { createdAt: true },
   });

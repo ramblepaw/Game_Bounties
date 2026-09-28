@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { updateSession, deleteSession, stopSession } from "@/server/actions/play-sessions";
 import { formatMinutes, formatShortDate } from "@/lib/format";
 import { zonedDateKey, toCalendarDay } from "@/lib/timezone";
+import { cn } from "@/lib/cn";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 
@@ -27,6 +28,7 @@ export function SessionRow({
   showPlayer = true,
   showChecklist = true,
   averageMinutesPerDay,
+  readOnly = false,
 }: {
   session: SessionRowData;
   checklists: ChecklistOption[];
@@ -36,6 +38,8 @@ export function SessionRow({
   showChecklist?: boolean;
   /** Running average minutes/day as of this session's date -- omit the column entirely when not provided. */
   averageMinutesPerDay?: number;
+  /** Part of a finished run -- its time is settled, so it can't be edited or removed. */
+  readOnly?: boolean;
 }) {
   const router = useRouter();
   const [editing, setEditing] = useState(false);
@@ -139,7 +143,7 @@ export function SessionRow({
       {averageMinutesPerDay != null && <td className="py-2">{formatMinutes(Math.round(averageMinutesPerDay))}</td>}
       <td className="py-2 text-neutral-500">{session.notes}</td>
       <td className="py-2 text-right">
-        <div className="flex justify-end gap-2">
+        <div className={cn("flex justify-end gap-2", readOnly && "hidden")}>
           {session.durationMinutes == null && (
             <button
               type="button"

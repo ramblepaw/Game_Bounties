@@ -88,11 +88,13 @@ function ModuleCard({
   onToggle,
   onSetCounter,
   onSetStage,
+  readOnly,
 }: {
   section: ProgressSection;
   onToggle: (itemId: string) => void;
   onSetCounter: (itemId: string, value: number) => void;
   onSetStage: (itemId: string, stage: number) => void;
+  readOnly: boolean;
 }) {
   // TITLE items are headings, not targets -- they never count toward "X/Y complete".
   const countableItems = section.items.filter((i) => i.kind !== "TITLE");
@@ -177,6 +179,7 @@ function ModuleCard({
                     onToggle={onToggle}
                     onSetCounter={onSetCounter}
                     onSetStage={onSetStage}
+                    readOnly={readOnly}
                   />
                 ),
               )}
@@ -188,7 +191,11 @@ function ModuleCard({
   );
 }
 
-export function ChecklistProgressView({ tabs }: { tabs: ProgressTab[] }) {
+/**
+ * `readOnly` shows a finished run as it ended -- a submitted run is done, so
+ * nothing on it can be ticked, counted, or advanced.
+ */
+export function ChecklistProgressView({ tabs, readOnly = false }: { tabs: ProgressTab[]; readOnly?: boolean }) {
   const router = useRouter();
   const [, startTransition] = useTransition();
   const [activeTabId, setActiveTabId] = useState(tabs[0]?.id ?? "");
@@ -225,6 +232,7 @@ export function ChecklistProgressView({ tabs }: { tabs: ProgressTab[] }) {
   const matchCount = matchedSections.reduce((n, s) => n + s.items.length, 0);
 
   function handleToggle(itemId: string) {
+    if (readOnly) return;
     startTransition(async () => {
       await toggleItem(itemId);
       router.refresh();
@@ -232,6 +240,7 @@ export function ChecklistProgressView({ tabs }: { tabs: ProgressTab[] }) {
   }
 
   function handleSetCounter(itemId: string, value: number) {
+    if (readOnly) return;
     startTransition(async () => {
       await setCounterValue(itemId, value);
       router.refresh();
@@ -239,6 +248,7 @@ export function ChecklistProgressView({ tabs }: { tabs: ProgressTab[] }) {
   }
 
   function handleSetStage(itemId: string, stage: number) {
+    if (readOnly) return;
     startTransition(async () => {
       await setItemStage(itemId, stage);
       router.refresh();
@@ -283,6 +293,7 @@ export function ChecklistProgressView({ tabs }: { tabs: ProgressTab[] }) {
                 onToggle={handleToggle}
                 onSetCounter={handleSetCounter}
                 onSetStage={handleSetStage}
+                readOnly={readOnly}
               />
             ))}
             {matchedSections.length === 0 && (
@@ -337,6 +348,7 @@ export function ChecklistProgressView({ tabs }: { tabs: ProgressTab[] }) {
                   onToggle={handleToggle}
                   onSetCounter={handleSetCounter}
                   onSetStage={handleSetStage}
+                  readOnly={readOnly}
                 />
               ))}
               {activeTab.sections.length === 0 && (

@@ -7,6 +7,8 @@ import { formatMinutes } from "@/lib/format";
 import { DEFAULT_ACTIVE_CHECKLIST_LIMIT } from "@/lib/limits";
 import { isTokenless } from "@/lib/token-economy";
 import { BadgeShelf } from "@/components/badges/badge-shelf";
+import { runHref } from "@/lib/run-links";
+import { formatShortDateIn } from "@/lib/timezone";
 import { StopRunningButton } from "@/components/checklists/stop-running-button";
 import { EditableActiveLimit } from "./editable-active-limit";
 import { EditableTimezone } from "./editable-timezone";
@@ -49,7 +51,7 @@ export default async function ProfilePage() {
 
       <section className="flex flex-col gap-3">
         <h2 className="font-medium text-fuchsia-700 dark:text-fuchsia-400">Badges</h2>
-        <BadgeShelf awards={badges} />
+        <BadgeShelf awards={badges} timeZone={user.timezone} />
       </section>
 
       <section className="flex flex-col gap-3">
@@ -96,13 +98,13 @@ export default async function ProfilePage() {
                 className="flex items-center justify-between rounded-lg border border-violet-200 bg-white p-3 text-sm shadow-sm dark:border-violet-800 dark:bg-neutral-900"
               >
                 <Link
-                  href={`/games/${c.checklist.gameId}/checklists/${c.checklistId}`}
+                  href={runHref(c.checklist.gameId, c.checklistId, c.id)}
                   className="font-medium text-violet-800 hover:underline dark:text-violet-200"
                 >
                   {c.checklist.game.title} — {c.checklist.name}
                 </Link>
                 <span className="text-xs text-neutral-500">
-                  {c.reviewedAt?.toLocaleDateString()} · reviewed by {c.reviewedBy?.displayName}
+                  Completed {formatShortDateIn(c.submittedAt, user.timezone)} · approved by {c.reviewedBy?.displayName}
                 </span>
               </li>
             ))}

@@ -7,6 +7,7 @@ import { db } from "@/lib/db";
 import { awardBadgeForCompletion } from "@/lib/badges";
 import { DEFAULT_TOKENS_PER_COMPLETION } from "@/lib/token-economy";
 import { resetChecklistProgress } from "@/server/actions/checklist-progress-reset";
+import { discardCurrentAttempt } from "@/lib/runs";
 import { fetchItemProgressMap } from "@/server/queries/item-progress";
 
 async function requireSession() {
@@ -39,8 +40,11 @@ export async function submitForApproval(
     return { error: "All items must be checked off before submitting for approval." };
   }
 
+  // Only this player's own submission blocks them. Two household members run
+  // a checklist independently, so someone else's pending run is no reason to
+  // refuse yours.
   const existingPending = await db.checklistCompletion.findFirst({
-    where: { checklistId, status: "PENDING" },
+    where: { checklistId, completedById: session.userId, status: "PENDING" },
   });
   if (existingPending) {
     return { error: "This checklist is already pending approval." };
@@ -85,7 +89,9 @@ export async function approveCompletion(completionId: string): Promise<void> {
       },
     });
     // The run is archived now — wipe the board and un-run it so the next
-    // attempt (after any cooldown) starts fresh.
+    // attempt (after any cooldown) starts fresh. Only the current-state rows
+    // go: the progress log and sessions stay, read back through the run's
+    // window (lib/runs.ts) as this run's archive.
     await resetChecklistProgress(completion.checklistId, completion.completedById, tx);
     await tx.activeChecklist.deleteMany({
       where: { checklistId: completion.checklistId, userId: completion.completedById },
@@ -143,8 +149,9 @@ export async function waiveCooldown(completionId: string): Promise<void> {
 }
 
 /**
- * Wipes item progress on a rejected run so the submitter can start over
- * clean, instead of fixing forward. The rejected record stays as history.
+ * Throws away a rejected run so the submitter can start over clean, instead
+ * of fixing forward. Starting over abandons the attempt, so its progress log
+ * and playtime go with it -- only the rejected record itself stays.
  */
 export async function clearRejectedRun(completionId: string): Promise<void> {
   const session = await requireSession();
@@ -155,6 +162,6 @@ export async function clearRejectedRun(completionId: string): Promise<void> {
     throw new Error("Only the person who submitted this run can clear it.");
   }
 
-  await resetChecklistProgress(completion.checklistId, session.userId);
+  await db.$transaction((tx) => discardCurrentAttempt(completion.checklistId, session.userId, tx));
   revalidatePath("/", "layout");
 }

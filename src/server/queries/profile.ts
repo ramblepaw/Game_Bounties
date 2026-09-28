@@ -7,7 +7,7 @@ export async function getProfileData(userId: string) {
     db.userBadge.findMany({
       where: { userId },
       orderBy: { awardedAt: "desc" },
-      include: { badge: true },
+      include: { badge: true, completion: { select: { id: true, submittedAt: true, checklistId: true, checklist: { select: { gameId: true } } } } },
     }),
     db.checklistCompletion.count({ where: { completedById: userId, status: "APPROVED" } }),
     db.playSession.aggregate({

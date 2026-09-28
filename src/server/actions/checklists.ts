@@ -8,6 +8,7 @@ import { db } from "@/lib/db";
 import type { ItemLayout, ImageFit, ItemKind } from "@/generated/prisma/enums";
 import { saveImageFromBase64, uploadKindFromUrl } from "@/lib/uploads";
 import { asStages, type StageDef } from "@/lib/stages";
+import { assertItemRunNotSubmitted } from "@/lib/runs";
 
 async function requireSession() {
   const session = await getSession();
@@ -870,6 +871,7 @@ function recordProgressEvent(userId: string, itemId: string, before: number, aft
 
 export async function toggleItem(itemId: string): Promise<void> {
   const session = await requireSession();
+  await assertItemRunNotSubmitted(itemId, session.userId);
   const existing = await db.checklistItemProgress.findUnique({
     where: { userId_itemId: { userId: session.userId, itemId } },
   });
@@ -890,6 +892,7 @@ export async function toggleItem(itemId: string): Promise<void> {
 
 export async function setCounterValue(itemId: string, value: number): Promise<void> {
   const session = await requireSession();
+  await assertItemRunNotSubmitted(itemId, session.userId);
   const [item, existing] = await Promise.all([
     db.checklistItem.findUniqueOrThrow({ where: { id: itemId }, select: { targetCount: true } }),
     db.checklistItemProgress.findUnique({ where: { userId_itemId: { userId: session.userId, itemId } } }),
@@ -919,6 +922,7 @@ export async function setCounterValue(itemId: string, value: number): Promise<vo
 /** Sets a STAGE item's current stage (0 = not started, up to its module's stage count). */
 export async function setItemStage(itemId: string, stage: number): Promise<void> {
   const session = await requireSession();
+  await assertItemRunNotSubmitted(itemId, session.userId);
   const [item, existing] = await Promise.all([
     db.checklistItem.findUniqueOrThrow({
       where: { id: itemId },

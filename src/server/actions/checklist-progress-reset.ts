@@ -4,10 +4,11 @@ import { db } from "@/lib/db";
 /**
  * Resets one user's progress on a checklist back to "not started" -- deletes
  * their ChecklistItemProgress rows for every item under it, leaving anyone
- * else's independent progress on the same checklist untouched. Shared by
- * approval (that run archived, slate wiped for next time), clearing a
- * rejected run, and stopping a run early, so the relational filter can't
- * drift between call sites.
+ * else's independent progress on the same checklist untouched.
+ *
+ * Used on approval, where only the board is wiped: the run's progress log and
+ * sessions stay as its archive. Abandoning a run throws those away too -- see
+ * discardCurrentAttempt in lib/runs.ts.
  */
 export async function resetChecklistProgress(
   checklistId: string,

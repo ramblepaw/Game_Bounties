@@ -77,7 +77,7 @@ export default async function StatsPage() {
 
       <section className="flex flex-col gap-3">
         <h2 className="font-medium text-fuchsia-700 dark:text-fuchsia-400">Badges</h2>
-        <BadgeShelf awards={badges} />
+        <BadgeShelf awards={badges} timeZone={timeZone} />
       </section>
 
       <section className="flex flex-col gap-3">

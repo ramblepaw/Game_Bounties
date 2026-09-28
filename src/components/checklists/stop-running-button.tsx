@@ -9,7 +9,7 @@ export function StopRunningButton({ checklistId }: { checklistId: string }) {
   const [pending, startTransition] = useTransition();
 
   function handleClick() {
-    if (!window.confirm("Stop running? All progress on this checklist will be erased.")) return;
+    if (!window.confirm("Stop running? This run's progress and all the time logged in it will be erased.")) return;
     startTransition(() => deactivateChecklist(checklistId).then(() => router.refresh()));
   }
 

@@ -1,9 +1,10 @@
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
-import { getChecklistDetail, checklistProgress } from "@/server/queries/games";
-import { computeChecklistProgress, flattenProgressItems } from "@/lib/checklist-progress";
-import { asStages } from "@/lib/stages";
-import { fetchItemProgressMap, withItemProgress, completedByDayForChecklist } from "@/server/queries/item-progress";
+import { getChecklistDetail } from "@/server/queries/games";
+import { fetchItemProgressMap, completedByDayForChecklist } from "@/server/queries/item-progress";
+import { currentRunFor, latestSubmissionFor } from "@/lib/runs";
+import { runHref } from "@/lib/run-links";
+import { buildBoard } from "@/lib/checklist-board";
 import {
   getActiveSessionFor,
   totalPlaytimeMinutesForChecklist,
@@ -15,14 +16,14 @@ import { listActiveChecklistIdsFor } from "@/server/queries/active-checklists";
 import { estimateCompletionDate } from "@/lib/estimation";
 import { DEFAULT_TOKENS_PER_COMPLETION } from "@/lib/token-economy";
 import { formatShortDate } from "@/lib/format";
-import { DEFAULT_TIMEZONE } from "@/lib/timezone";
+import { DEFAULT_TIMEZONE, formatShortDateIn } from "@/lib/timezone";
 import { getSession, getCurrentUser } from "@/lib/auth";
 import { ProgressBar } from "@/components/checklists/progress-bar";
 import { ChecklistProgressView } from "@/components/checklists/checklist-progress-view";
 import { ChecklistStatsPanel } from "@/components/checklists/checklist-stats-panel";
 import { ChecklistNotesPanel } from "@/components/checklists/checklist-notes-panel";
 import { ChecklistRequiredGamesPanel } from "@/components/checklists/checklist-required-games-panel";
-import { ChecklistBoxesPanel, type BoxItem } from "@/components/checklists/checklist-boxes-panel";
+import { ChecklistBoxesPanel } from "@/components/checklists/checklist-boxes-panel";
 import { ChecklistViewTabs } from "@/components/checklists/checklist-view-tabs";
 import { SubmitApprovalForm } from "@/components/checklists/submit-approval-form";
 import { SessionTimer } from "@/components/sessions/session-timer";
@@ -42,48 +43,33 @@ export default async function ChecklistProgressPage({
   if (!checklist) notFound();
   const timeZone = currentUser?.timezone ?? DEFAULT_TIMEZONE;
 
+  // Everything on this page is the viewer's current run only. A finished run
+  // lives on its own page (runs/[completionId]) with its figures frozen at
+  // submission, so it neither keeps "recording" nor merges into a re-run.
+  const [run, latestCompletion] = await Promise.all([
+    currentRunFor(checklistId, session.userId),
+    latestSubmissionFor(checklistId, session.userId),
+  ]);
+  const { window } = run;
+  const isSubmitted = run.pending !== null;
+
   const [activeSession, activeIds, totalMinutes, sessionCount, estimate, sessions, playtimeByDay, completedByDay] =
     await Promise.all([
       getActiveSessionFor(session.userId),
       listActiveChecklistIdsFor(session.userId),
-      totalPlaytimeMinutesForChecklist(checklistId, session.userId),
-      sessionCountForChecklist(checklistId, session.userId),
-      estimateCompletionDate(checklistId, session.userId, timeZone),
-      listSessionsForChecklist(checklistId, session.userId),
-      playtimeByDayForChecklist(checklistId, session.userId, timeZone),
-      completedByDayForChecklist(checklistId, session.userId, timeZone),
+      totalPlaytimeMinutesForChecklist(checklistId, session.userId, window),
+      sessionCountForChecklist(checklistId, session.userId, window),
+      estimateCompletionDate(checklistId, session.userId, timeZone, window),
+      listSessionsForChecklist(checklistId, session.userId, window),
+      playtimeByDayForChecklist(checklistId, session.userId, timeZone, window),
+      completedByDayForChecklist(checklistId, session.userId, timeZone, window),
     ]);
 
   const itemIds = checklist.tabs.flatMap((t) => t.sections.flatMap((s) => s.items.map((i) => i.id)));
   const itemProgress = await fetchItemProgressMap(session.userId, itemIds);
-  const progressTabs = checklist.tabs.map((tab) => ({
-    ...tab,
-    sections: tab.sections.map((section) => ({
-      ...section,
-      stages: asStages(section.stages),
-      items: withItemProgress(section.items, itemProgress),
-    })),
-  }));
-
-  // Flattened in the same tab/module/item display order, each item carrying
-  // its own module's stages -- so the box view can re-chunk into fixed-size
-  // groups (e.g. 30, to mirror a Pokemon game's PC box) independent of
-  // whatever module grouping the stats page relies on. TITLE items are
-  // headings, not catchable targets, so they're excluded from box slots.
-  const boxItems: BoxItem[] = progressTabs.flatMap((tab) =>
-    tab.sections.flatMap((section) =>
-      section.items.filter((item) => item.kind !== "TITLE").map((item) => ({ ...item, stages: section.stages })),
-    ),
+  const { progressTabs, boxItems, tabProgress, progress } = buildBoard(checklist.tabs, (item) =>
+    itemProgress.get(item.id),
   );
-
-  const progress = checklistProgress({ tabs: progressTabs });
-  const tabProgress = progressTabs.map((tab) => ({
-    tab: tab.title,
-    percent: computeChecklistProgress(
-      flattenProgressItems(tab.sections.map((s) => ({ stageCount: asStages(s.stages).length, items: s.items }))),
-    ).percent,
-  }));
-  const latestCompletion = checklist.completions[0];
   const isRunning = activeIds.has(checklistId);
 
   return (
@@ -120,7 +106,7 @@ export default async function ChecklistProgressPage({
         </p>
       </div>
 
-      {isRunning && (
+      {isRunning && !isSubmitted && (
         <div className="flex flex-wrap items-center gap-3">
           <SessionTimer
             checklistId={checklistId}
@@ -143,23 +129,32 @@ export default async function ChecklistProgressPage({
         <div className="flex items-center justify-between gap-3 rounded-md bg-neutral-100 px-3 py-2 text-sm text-neutral-600 dark:bg-neutral-800 dark:text-neutral-300">
           <span>
             {latestCompletion.status === "PENDING" &&
-              `Submitted for approval by ${latestCompletion.completedBy.displayName}, awaiting review.`}
+              `Completed ${formatShortDateIn(latestCompletion.submittedAt, timeZone)} and submitted for approval — this run is finished.`}
             {latestCompletion.status === "REJECTED" &&
               `Last submission was rejected${
                 latestCompletion.rejectionReason ? `: ${latestCompletion.rejectionReason}` : "."
               }`}
             {latestCompletion.status === "APPROVED" &&
-              `Approved by ${latestCompletion.reviewedBy?.displayName ?? "the household"}.`}
+              `Last completed ${formatShortDateIn(latestCompletion.submittedAt, timeZone)}, approved by ${
+                latestCompletion.reviewedBy?.displayName ?? "the household"
+              }.`}
           </span>
-          {latestCompletion.status === "REJECTED" && (
+          {latestCompletion.status === "REJECTED" ? (
             <ClearRejectedRunButton completionId={latestCompletion.id} />
+          ) : (
+            <Link
+              href={runHref(gameId, checklistId, latestCompletion.id)}
+              className="shrink-0 text-violet-600 hover:underline dark:text-violet-300"
+            >
+              View run
+            </Link>
           )}
         </div>
       )}
 
       {progress.total > 0 &&
         progress.completed === progress.total &&
-        latestCompletion?.status !== "PENDING" && (
+        !isSubmitted && (
           <SubmitApprovalForm
             checklistId={checklistId}
             label={latestCompletion?.status === "REJECTED" ? "Resubmit for approval" : "Submit for approval"}
@@ -179,7 +174,7 @@ export default async function ChecklistProgressPage({
       </div>
 
       <ChecklistViewTabs
-        checklistSlot={<ChecklistProgressView tabs={progressTabs} />}
+        checklistSlot={<ChecklistProgressView tabs={progressTabs} readOnly={isSubmitted} />}
         notesSlot={<ChecklistNotesPanel notesModules={checklist.notesModules} />}
         gamesSlot={<ChecklistRequiredGamesPanel requiredGames={checklist.requiredGames} />}
         boxesSlot={
@@ -198,6 +193,7 @@ export default async function ChecklistProgressPage({
             tabProgress={tabProgress}
             playtimeByDay={playtimeByDay}
             completedByDay={completedByDay}
+            readOnly={isSubmitted}
           />
         }
       />

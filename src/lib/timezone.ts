@@ -1,4 +1,4 @@
-import { parseISODateLocal } from "@/lib/format";
+import { parseISODateLocal, formatShortDate } from "@/lib/format";
 
 export const DEFAULT_TIMEZONE = "UTC";
 
@@ -26,6 +26,15 @@ export function nowInTimeZone(timeZone: string): Date {
 /** A moment in time (e.g. a `completedAt` timestamp), reduced to the calendar day it falls on in `timeZone`. */
 export function toCalendarDay(date: Date, timeZone: string): Date {
   return parseISODateLocal(zonedDateKey(date, timeZone));
+}
+
+/**
+ * A moment as the short date the viewer's charts file it under. Plain
+ * formatShortDate reads the server's own clock, so a run finished late in the
+ * evening could be headed one day and charted on the next.
+ */
+export function formatShortDateIn(date: Date, timeZone: string): string {
+  return formatShortDate(toCalendarDay(date, timeZone));
 }
 
 /**

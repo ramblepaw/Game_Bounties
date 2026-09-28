@@ -9,7 +9,7 @@ export function ClearRejectedRunButton({ completionId }: { completionId: string 
   const [pending, startTransition] = useTransition();
 
   function handleClick() {
-    if (!window.confirm("Clear all progress and start this checklist over?")) return;
+    if (!window.confirm("Start this checklist over? This run's progress and all the time logged in it will be erased.")) return;
     startTransition(() => clearRejectedRun(completionId).then(() => router.refresh()));
   }
 
