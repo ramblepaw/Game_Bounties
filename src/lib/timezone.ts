@@ -18,6 +18,39 @@ export function zonedDateKey(date: Date, timeZone: string): string {
   );
 }
 
+/** How far `timeZone`'s wall clock is ahead of UTC at `date`, in milliseconds. */
+function timeZoneOffsetMs(date: Date, timeZone: string): number {
+  const parts = new Intl.DateTimeFormat("en-US", {
+    timeZone,
+    hourCycle: "h23",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+  }).formatToParts(date);
+  const get = (type: string) => Number(parts.find((p) => p.type === type)?.value);
+  const wallClock = Date.UTC(get("year"), get("month") - 1, get("day"), get("hour"), get("minute"), get("second"));
+  return wallClock - Math.floor(date.getTime() / 1000) * 1000;
+}
+
+/**
+ * The instant a "yyyy-MM-dd" calendar day begins in `timeZone` -- the inverse
+ * of zonedDateKey. A date typed into a form means that day where the user is;
+ * building it on the server's clock instead files it under the wrong day for
+ * anyone not on the server's timezone. The offset is re-read once at the
+ * candidate instant so a DST change between UTC midnight and local midnight
+ * doesn't throw it off by an hour.
+ */
+export function startOfDayInTimeZone(dateKey: string, timeZone: string): Date {
+  const [year, month, day] = dateKey.split("-").map(Number);
+  const utcMidnight = Date.UTC(year, month - 1, day);
+  let instant = utcMidnight - timeZoneOffsetMs(new Date(utcMidnight), timeZone);
+  instant = utcMidnight - timeZoneOffsetMs(new Date(instant), timeZone);
+  return new Date(instant);
+}
+
 /** "Today" as a plain calendar-day Date, anchored to `timeZone` instead of the server's own. */
 export function nowInTimeZone(timeZone: string): Date {
   return parseISODateLocal(zonedDateKey(new Date(), timeZone));

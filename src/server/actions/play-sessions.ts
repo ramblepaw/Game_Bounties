@@ -3,9 +3,10 @@
 import { z } from "zod";
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
-import { getSession } from "@/lib/auth";
+import { getSession, getCurrentUser } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { isRunSubmitted, SUBMITTED_RUN_LOCKED } from "@/lib/runs";
+import { DEFAULT_TIMEZONE, startOfDayInTimeZone, zonedDateKey } from "@/lib/timezone";
 
 async function requireSession() {
   const session = await getSession();
@@ -13,9 +14,9 @@ async function requireSession() {
   return session;
 }
 
-function parseLocalDate(dateString: string): Date {
-  const [year, month, day] = dateString.split("-").map(Number);
-  return new Date(year, month - 1, day);
+/** The timezone the viewer's session lists file days under -- a form date means that day there. */
+async function viewerTimeZone(): Promise<string> {
+  return (await getCurrentUser())?.timezone ?? DEFAULT_TIMEZONE;
 }
 
 export type SessionActionState = { error: string | null };
@@ -105,7 +106,7 @@ export async function createManualSession(
     return { error: SUBMITTED_RUN_LOCKED };
   }
 
-  const startedAt = parseLocalDate(parsed.data.date);
+  const startedAt = startOfDayInTimeZone(parsed.data.date, await viewerTimeZone());
 
   await db.playSession.create({
     data: {
@@ -159,7 +160,14 @@ export async function updateSession(
     return { error: "Enter a duration greater than zero." };
   }
 
-  const startedAt = parseLocalDate(parsed.data.date);
+  // Leaving the date alone keeps the session's real start time, so fixing only
+  // the duration of a timed session doesn't also move it to midnight.
+  const timeZone = await viewerTimeZone();
+  const existing = await db.playSession.findUnique({ where: { id: sessionId }, select: { startedAt: true } });
+  const startedAt =
+    existing && zonedDateKey(existing.startedAt, timeZone) === parsed.data.date
+      ? existing.startedAt
+      : startOfDayInTimeZone(parsed.data.date, timeZone);
 
   await db.playSession.update({
     where: { id: sessionId },
