@@ -24,3 +24,16 @@ export function formatShortDate(date: Date): string {
 export function formatISODateLocal(date: Date): string {
   return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
 }
+
+/**
+ * Completed share of a checklist as a percentage, kept to two decimals.
+ * Rounds down so a nearly-finished run never reads as 100.00% before it is.
+ */
+export function completionPercent(completed: number, total: number): number {
+  return total === 0 ? 0 : Math.floor((completed / total) * 10000) / 100;
+}
+
+/** A completion percentage as shown everywhere, e.g. "42.86%". */
+export function formatPercent(percent: number): string {
+  return `${percent.toFixed(2)}%`;
+}

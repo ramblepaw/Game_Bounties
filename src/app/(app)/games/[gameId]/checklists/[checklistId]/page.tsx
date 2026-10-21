@@ -15,7 +15,7 @@ import {
 import { listActiveChecklistIdsFor } from "@/server/queries/active-checklists";
 import { estimateCompletionDate } from "@/lib/estimation";
 import { DEFAULT_TOKENS_PER_COMPLETION } from "@/lib/token-economy";
-import { formatShortDate } from "@/lib/format";
+import { formatShortDate, formatPercent } from "@/lib/format";
 import { DEFAULT_TIMEZONE, formatShortDateIn } from "@/lib/timezone";
 import { getSession, getCurrentUser } from "@/lib/auth";
 import { ProgressBar } from "@/components/checklists/progress-bar";
@@ -164,7 +164,7 @@ export default async function ChecklistProgressPage({
       <div className="flex flex-col gap-2">
         <ProgressBar percent={progress.percent} />
         <p className="text-xs text-neutral-500">
-          {progress.completed} / {progress.total} complete ({progress.percent}%)
+          {progress.completed} / {progress.total} complete ({formatPercent(progress.percent)})
         </p>
         <p className="text-xs text-neutral-500">
           {estimate.projectedDate

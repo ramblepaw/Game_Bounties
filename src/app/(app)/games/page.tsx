@@ -5,6 +5,7 @@ import { listGames, listShelves, checklistProgress } from "@/server/queries/game
 import { getSession } from "@/lib/auth";
 import { GamesLibrary } from "@/components/games/games-library";
 import { Button } from "@/components/ui/button";
+import { completionPercent } from "@/lib/format";
 
 export default async function GamesPage() {
   const session = await getSession();
@@ -26,7 +27,7 @@ export default async function GamesPage() {
       platform: game.platform,
       coverImageUrl: game.coverImageUrl,
       secondaryCoverImageUrl: game.secondaryCoverImageUrl,
-      percent: total === 0 ? 0 : Math.round((completed / total) * 100),
+      percent: completionPercent(completed, total),
     };
   });
 

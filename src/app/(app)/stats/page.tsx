@@ -12,6 +12,7 @@ import { BadgeShelf } from "@/components/badges/badge-shelf";
 import { ProgressBar } from "@/components/checklists/progress-bar";
 import { getCurrentUser } from "@/lib/auth";
 import { DEFAULT_TIMEZONE } from "@/lib/timezone";
+import { formatPercent } from "@/lib/format";
 
 export default async function StatsPage() {
   // Days are bucketed against the viewer's timezone, like everywhere else.
@@ -61,7 +62,7 @@ export default async function StatsPage() {
                             </span>
                             <ProgressBar percent={u.percent} />
                             <span className="w-10 shrink-0 text-right text-xs text-neutral-500">
-                              {u.percent}%
+                              {formatPercent(u.percent)}
                             </span>
                           </div>
                         ))}

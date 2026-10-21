@@ -1,6 +1,6 @@
 import { addDays } from "date-fns";
-import { formatMinutes, parseISODateLocal, formatShortDate } from "@/lib/format";
-import { zonedDateKey } from "@/lib/timezone";
+import { formatMinutes, parseISODateLocal, formatShortDate, formatPercent } from "@/lib/format";
+import { zonedDateKey, splitMinutesByDay } from "@/lib/timezone";
 import { TabCompletionTable } from "@/components/stats/tab-completion-table";
 import { ChecklistPlaytimeChart } from "@/components/stats/checklist-playtime-chart";
 import { ObjectivesCompletedChart } from "@/components/stats/objectives-completed-chart";
@@ -11,6 +11,7 @@ type StatsSession = {
   id: string;
   checklistId: string;
   startedAt: Date;
+  endedAt: Date | null;
   durationMinutes: number | null;
   notes: string | null;
   user: { displayName: string };
@@ -68,6 +69,19 @@ export function ChecklistStatsPanel({
   );
   const avgPlaytimePerDay = playtimeByDay.length > 0 ? totalMinutes / playtimeByDay.length : null;
 
+  // One row per day a session was played on, matching the chart: a session
+  // that runs past midnight shows its share under each day rather than
+  // landing whole on the day it started. Newest day first, like the sessions.
+  type SessionLogRow = { key: string; session: StatsSession; day: string; portion?: { day: string; minutes: number } };
+  const sessionLogRows = sessions.flatMap((s): SessionLogRow[] => {
+    const days =
+      s.durationMinutes != null ? splitMinutesByDay(s.startedAt, s.endedAt, s.durationMinutes, timeZone) : [];
+    if (days.length <= 1) return [{ key: s.id, session: s, day: zonedDateKey(s.startedAt, timeZone) }];
+    return days
+      .map(([day, minutes]) => ({ key: `${s.id}-${day}`, session: s, day, portion: { day, minutes } }))
+      .reverse();
+  });
+
   // Same running-average idea for objectives, plus what the projected
   // completion date would have been as of that day (same math as
   // estimateCompletionDate, just recomputed at each historical point).
@@ -96,7 +110,7 @@ export function ChecklistStatsPanel({
             <p className="text-xs text-neutral-500">{whose} sessions</p>
           </div>
           <div>
-            <p className="text-lg font-bold text-violet-900 dark:text-violet-200">{progress.percent}%</p>
+            <p className="text-lg font-bold text-violet-900 dark:text-violet-200">{formatPercent(progress.percent)}</p>
             <p className="text-xs text-neutral-500">{whose} completion</p>
           </div>
         </div>
@@ -110,21 +124,21 @@ export function ChecklistStatsPanel({
 
       <ObjectivesCompletedChart data={completedByDay} />
 
-      <CollapsibleSection
-        title={`${whose} playtime`}
-        headerExtra={
-          avgPlaytimePerDay != null && (
-            <span className="whitespace-nowrap text-xs text-neutral-500">
-              Average: <span className="font-semibold text-violet-900 dark:text-violet-200">{formatMinutes(Math.round(avgPlaytimePerDay))}</span>/day
-            </span>
-          )
-        }
-      >
+      <CollapsibleSection title={`${whose} playtime`}>
         <ChecklistPlaytimeChart data={playtimeByDay} />
       </CollapsibleSection>
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-        <CollapsibleSection title={`${whose} session log`}>
+        <CollapsibleSection
+          title={`${whose} session log`}
+          headerExtra={
+            avgPlaytimePerDay != null && (
+              <span className="whitespace-nowrap text-xs text-neutral-500">
+                Current average: <span className="font-semibold text-violet-900 dark:text-violet-200">{formatMinutes(Math.round(avgPlaytimePerDay))}</span>/day
+              </span>
+            )
+          }
+        >
           {sessions.length === 0 ? (
             <p className="text-sm text-neutral-500">No sessions logged for this checklist yet.</p>
           ) : (
@@ -139,16 +153,17 @@ export function ChecklistStatsPanel({
                 </tr>
               </thead>
               <tbody>
-                {sessions.map((s) => (
+                {sessionLogRows.map((row) => (
                   <SessionRow
-                    key={s.id}
-                    session={s}
+                    key={row.key}
+                    session={row.session}
                     checklists={checklists}
                     timeZone={timeZone}
                     showPlayer={false}
                     showChecklist={false}
-                    averageMinutesPerDay={playtimeAvgByDate.get(zonedDateKey(s.startedAt, timeZone))}
+                    averageMinutesPerDay={playtimeAvgByDate.get(row.day)}
                     readOnly={readOnly}
+                    portion={row.portion}
                   />
                 ))}
               </tbody>

@@ -1,3 +1,5 @@
+import { formatPercent } from "@/lib/format";
+
 type TabRate = { tab: string; percent: number };
 
 export function TabCompletionTable({ rates }: { rates: TabRate[] }) {
@@ -17,7 +19,7 @@ export function TabCompletionTable({ rates }: { rates: TabRate[] }) {
         {rates.map((r, i) => (
           <tr key={i} className="border-b border-violet-100 dark:border-violet-900">
             <td className="py-2">{r.tab}</td>
-            <td className="py-2 font-medium text-neutral-500">{r.percent}%</td>
+            <td className="py-2 font-medium text-neutral-500">{formatPercent(r.percent)}</td>
           </tr>
         ))}
       </tbody>

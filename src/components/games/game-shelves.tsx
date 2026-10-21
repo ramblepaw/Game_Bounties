@@ -15,6 +15,7 @@ import {
 } from "@/server/actions/game-groups";
 import type { Shelf, ShelfGame } from "@/server/queries/games";
 import { cn } from "@/lib/cn";
+import { formatPercent } from "@/lib/format";
 
 /** Where a dragged game would land: a shelf, and optionally the card to drop before. */
 type DropTarget = { shelfId: string | null; beforeGameId: string | null };
@@ -83,7 +84,7 @@ function GameCard({
         ) : (
           <div className="flex flex-col gap-1">
             <p className="text-[10px] text-neutral-500 dark:text-violet-300">
-              {game.checklistCount} checklist{game.checklistCount === 1 ? "" : "s"} · {game.percent}%
+              {game.checklistCount} checklist{game.checklistCount === 1 ? "" : "s"} · {formatPercent(game.percent)}
             </p>
             <ProgressBar percent={game.percent} />
           </div>

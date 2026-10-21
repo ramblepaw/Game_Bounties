@@ -21,6 +21,7 @@ import { ChecklistBoxesPanel } from "@/components/checklists/checklist-boxes-pan
 import { ChecklistViewTabs } from "@/components/checklists/checklist-view-tabs";
 import { ApprovalCard } from "@/components/approvals/approval-card";
 import { BadgeIcon } from "@/components/badges/badge-icon";
+import { formatPercent } from "@/lib/format";
 
 /**
  * One submitted run, as it was when its player finished it -- the archive of
@@ -121,7 +122,7 @@ export default async function RunPage({
       <div className="flex flex-col gap-2">
         <ProgressBar percent={progress.percent} />
         <p className="text-xs text-neutral-500">
-          {progress.completed} / {progress.total} complete ({progress.percent}%)
+          {progress.completed} / {progress.total} complete ({formatPercent(progress.percent)})
         </p>
       </div>
 

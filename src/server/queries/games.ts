@@ -8,6 +8,7 @@ import {
 import { readUploadedImageAsBase64 } from "@/lib/uploads";
 import { asStages } from "@/lib/stages";
 import { fetchItemProgressMap, withItemProgress } from "@/server/queries/item-progress";
+import { completionPercent } from "@/lib/format";
 
 function bySortTitle<T extends { title: string; sortTitle: string | null }>(games: T[]): T[] {
   return [...games].sort((a, b) => (a.sortTitle || a.title).localeCompare(b.sortTitle || b.title));
@@ -92,7 +93,7 @@ export async function listShelves(userId: string): Promise<Shelf[]> {
       checklistCount: game.checklists.length,
       completed,
       total,
-      percent: total === 0 ? 0 : Math.round((completed / total) * 100),
+      percent: completionPercent(completed, total),
     };
   };
 

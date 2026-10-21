@@ -1,4 +1,5 @@
 import type { ItemKind } from "@/generated/prisma/enums";
+import { completionPercent } from "@/lib/format";
 
 export type ProgressItemInput = {
   kind: ItemKind;
@@ -33,7 +34,7 @@ export function itemProgress(item: ProgressItemInput): number {
 export function computeChecklistProgress(items: ProgressItemInput[]) {
   const total = items.reduce((sum, i) => sum + itemWeight(i), 0);
   const completed = items.reduce((sum, i) => sum + itemProgress(i), 0);
-  return { total, completed, percent: total === 0 ? 0 : Math.round((completed / total) * 100) };
+  return { total, completed, percent: completionPercent(completed, total) };
 }
 
 /**

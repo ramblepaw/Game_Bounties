@@ -3,7 +3,7 @@
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { updateSession, deleteSession, stopSession } from "@/server/actions/play-sessions";
-import { formatMinutes, formatShortDate } from "@/lib/format";
+import { formatMinutes, formatShortDate, parseISODateLocal } from "@/lib/format";
 import { zonedDateKey, toCalendarDay } from "@/lib/timezone";
 import { cn } from "@/lib/cn";
 import { Button } from "@/components/ui/button";
@@ -29,6 +29,7 @@ export function SessionRow({
   showChecklist = true,
   averageMinutesPerDay,
   readOnly = false,
+  portion,
 }: {
   session: SessionRowData;
   checklists: ChecklistOption[];
@@ -40,6 +41,12 @@ export function SessionRow({
   averageMinutesPerDay?: number;
   /** Part of a finished run -- its time is settled, so it can't be edited or removed. */
   readOnly?: boolean;
+  /**
+   * Just the share of a past-midnight session played on one day (see
+   * splitMinutesByDay). The row shows that day and those minutes; Edit still
+   * corrects the whole session.
+   */
+  portion?: { day: string; minutes: number };
 }) {
   const router = useRouter();
   const [editing, setEditing] = useState(false);
@@ -136,9 +143,20 @@ export function SessionRow({
         </td>
       )}
       {showPlayer && <td className="py-2">{session.user.displayName}</td>}
-      <td className="py-2">{formatShortDate(toCalendarDay(session.startedAt, timeZone))}</td>
       <td className="py-2">
-        {session.durationMinutes != null ? formatMinutes(session.durationMinutes) : "in progress"}
+        {formatShortDate(portion ? parseISODateLocal(portion.day) : toCalendarDay(session.startedAt, timeZone))}
+      </td>
+      <td className="py-2">
+        {portion && session.durationMinutes != null ? (
+          <>
+            {formatMinutes(portion.minutes)}{" "}
+            <span className="text-xs text-neutral-500">of {formatMinutes(session.durationMinutes)}</span>
+          </>
+        ) : session.durationMinutes != null ? (
+          formatMinutes(session.durationMinutes)
+        ) : (
+          "in progress"
+        )}
       </td>
       {averageMinutesPerDay != null && <td className="py-2">{formatMinutes(Math.round(averageMinutesPerDay))}</td>}
       <td className="py-2 text-neutral-500">{session.notes}</td>
