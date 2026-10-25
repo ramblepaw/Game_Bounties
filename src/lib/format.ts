@@ -16,7 +16,11 @@ export function parseISODateLocal(isoDate: string): Date {
 /** M/D/YY, e.g. "7/29/26" -- the app's one shared short-date format (a future
  *  per-user setting could offer others, but everything reads this way for now). */
 export function formatShortDate(date: Date): string {
-  const year = String(date.getFullYear()).slice(-2);
+  // Two digits only name the year within this century. A completion estimate
+  // can land centuries out, and "2/12/76" for 2476 reads as 2076 -- or as the
+  // past -- so anything outside 2000-2099 keeps all four digits.
+  const fullYear = date.getFullYear();
+  const year = fullYear >= 2000 && fullYear <= 2099 ? String(fullYear).slice(-2) : String(fullYear);
   return `${date.getMonth() + 1}/${date.getDate()}/${year}`;
 }
 
